@@ -1,0 +1,12 @@
+{:itonami.blueprint/id "cloud-itonami-isic-2813"
+ :itonami.blueprint/name "Manufacture of Other Pumps, Compressors, Taps and Valves"
+ :itonami.blueprint/isic-rev5 "2813"
+ :itonami.blueprint/domain :manufacturing/pumps-compressors-valves
+ :itonami.blueprint/license "AGPL-3.0-or-later"
+ :itonami.blueprint/social-impact [:industrial-safety :supply-resilience :industrial-jobs]
+ :itonami.blueprint/governor :pressureequip-governor
+ :itonami.blueprint/robotics true
+ :itonami.blueprint/required-technologies [:robotics :cae :dmn :bpmn :audit-ledger]
+ :itonami.blueprint/optional-technologies [:telemetry :optimization]
+ :itonami.blueprint/status :public-oss
+ :itonami.blueprint/maturity :implemented}
