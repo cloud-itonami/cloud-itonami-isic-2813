@@ -1,0 +1,67 @@
+;; Production line (station schedule) for :unit/industrial-refrigeration-
+;; compressor, in the shape of kami-app-sarutahiko-factory's prod-order.edn
+;; (a `:station/seq`/`:station/op`/`:station/cell` direct-chain graph -- see
+;; that repo's resources/kotoba/sarutahiko-factory/prod-order.edn for the
+;; pattern this mirrors). `:station/parts` references `:part/id`s from
+;; compressor-unit-bom.edn; resolution is checked by
+;; `pressureequip.assembly/step-parts-consistent?`
+;; (test/pressureequip/assembly_test.cljc). Hand-authored, illustrative
+;; station durations -- not a real line-balancing study.
+{:prod-order/of :unit/industrial-refrigeration-compressor
+ :prod-order/takt-s 480.0
+ :prod-order/stations
+ [{:station/seq 1 :station/id "st:receive-inspect" :station/name "Receiving inspection"
+   :station/op "receive-inspect" :station/cell "" :station/cycle-s 900.0
+   :station/parts []}
+
+  {:station/seq 2 :station/id "st:frame-weld" :station/name "Frame welding"
+   :station/op "frame-weld" :station/cell "cell:weld-1" :station/cycle-s 3600.0
+   :station/parts ["part:frame"]}
+
+  {:station/seq 3 :station/id "st:compressor-motor-mount" :station/name "Compressor + motor mount"
+   :station/op "compressor-motor-mount" :station/cell "cell:assembly-1" :station/cycle-s 2700.0
+   :station/parts ["part:compressor-body" "part:electric-motor" "part:vibration-isolators"]}
+
+  {:station/seq 4 :station/id "st:coil-fan-assembly" :station/name "Condenser coil + fan assembly"
+   :station/op "coil-fan-assembly" :station/cell "cell:assembly-2" :station/cycle-s 2400.0
+   :station/parts ["part:condenser-coil" "part:fan-assembly"]}
+
+  {:station/seq 5 :station/id "st:piping" :station/name "Refrigerant piping (braze)"
+   :station/op "piping" :station/cell "cell:brazing-1" :station/cycle-s 3600.0
+   :station/parts ["part:piping"]}
+
+  {:station/seq 6 :station/id "st:panel-wiring" :station/name "Control panel + wiring"
+   :station/op "panel-wiring" :station/cell "cell:electrical-1" :station/cycle-s 2400.0
+   :station/parts ["part:control-panel" "part:wiring-harness"]}
+
+  {:station/seq 7 :station/id "st:refrigerant-charge" :station/name "Refrigerant charge (R-448A)"
+   :station/op "refrigerant-charge" :station/cell "cell:charge-1" :station/cycle-s 1800.0
+   :station/parts ["part:refrigerant-charge"]}
+
+  ;; This station's OUTPUT is the evidence artefact `pressureequip.facts/
+  ;; catalog`'s `:required-evidence` lists (every jurisdiction) as
+  ;; "hydrostatic-pneumatic-pressure-test-report" -- the SAME evidence
+  ;; string `pressureequip.governor` checks for on `:actuation/dispatch-
+  ;; unit` / `:actuation/issue-pressure-test-certificate` (its HARD-HOLD
+  ;; evidence-completeness check). `:station/evidence-produced` here is a
+  ;; DATA/comment-level cross-reference ONLY -- no governor code is wired
+  ;; to this EDN in this change (intentionally out of scope; see the ADR
+  ;; that introduced this file).
+  {:station/seq 8 :station/id "st:pressure-test" :station/name "Hydrostatic / pneumatic pressure test"
+   :station/op "pressure-test" :station/cell "" :station/cycle-s 1800.0
+   :station/parts [] :station/evidence-produced "hydrostatic-pneumatic-pressure-test-report"}
+
+  {:station/seq 9 :station/id "st:paint" :station/name "Finish paint"
+   :station/op "paint" :station/cell "cell:paint-1" :station/cycle-s 1800.0
+   :station/parts []}
+
+  {:station/seq 10 :station/id "st:qc" :station/name "Final QC"
+   :station/op "qc" :station/cell "" :station/cycle-s 900.0
+   :station/parts []}
+
+  ;; Feeds `pressureequip.governor`'s `:actuation/dispatch-unit` op (this
+  ;; repo's HARD-HOLD-gated actuation, per pressureequip.governor's ns
+  ;; docstring) -- comment-level cross-reference only, no code wiring here.
+  {:station/seq 11 :station/id "st:ship-decision" :station/name "Ship / dispatch decision"
+   :station/op "ship-decision" :station/cell "" :station/cycle-s 300.0
+   :station/parts []}]}

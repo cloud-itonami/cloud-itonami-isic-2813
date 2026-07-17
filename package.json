@@ -1,0 +1,7 @@
+{
+  "name": "cloud-itonami-isic-2813",
+  "private": true,
+  "devDependencies": {
+    "playwright": "^1.61.1"
+  }
+}
