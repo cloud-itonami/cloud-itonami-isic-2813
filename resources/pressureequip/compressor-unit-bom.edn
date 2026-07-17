@@ -1,0 +1,25 @@
+;; Bill of materials for :unit/industrial-refrigeration-compressor (see
+;; pressureequip.facts/unit-types). Hand-authored, illustrative BOM --
+;; NOT a real vendor parts list (see pressureequip.scene's ns docstring
+;; for the same fidelity/scope disclaimer applied here to the assembly
+;; process rather than the 3D scene). Every `:part/id` below is referenced
+;; by `:station/parts` entries in compressor-unit-prod-order.edn; round-trip
+;; consistency (every station part resolves to a BOM line, every BOM line
+;; is used by at least one station) is checked by
+;; `pressureequip.assembly/step-parts-consistent?` /
+;; `pressureequip.assembly/bom-parts-all-used?`
+;; (test/pressureequip/assembly_test.cljc) -- the BOM<->process-graph
+;; analogue of kami-app-sarutahiko-factory's
+;; `kotoba.sarutahiko-factory.construction-order/reveals-resolve?`.
+{:bom/of :unit/industrial-refrigeration-compressor
+ :bom/parts
+ [{:part/id "part:compressor-body" :part/name "Compressor body (screw/reciprocating block)" :part/qty 1}
+  {:part/id "part:electric-motor" :part/name "Electric drive motor" :part/qty 1}
+  {:part/id "part:condenser-coil" :part/name "Condenser coil" :part/qty 1}
+  {:part/id "part:fan-assembly" :part/name "Condenser fan assembly" :part/qty 2}
+  {:part/id "part:control-panel" :part/name "Control panel (NEMA/IP-rated enclosure)" :part/qty 1}
+  {:part/id "part:piping" :part/name "Refrigerant piping (suction / discharge / liquid lines)" :part/qty 1}
+  {:part/id "part:refrigerant-charge" :part/name "Refrigerant charge (R-448A)" :part/qty 1}
+  {:part/id "part:frame" :part/name "Base frame / skid" :part/qty 1}
+  {:part/id "part:vibration-isolators" :part/name "Vibration isolators (compressor mounts)" :part/qty 4}
+  {:part/id "part:wiring-harness" :part/name "Power + control wiring harness" :part/qty 1}]}
