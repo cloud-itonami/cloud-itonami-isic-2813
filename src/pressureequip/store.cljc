@@ -67,7 +67,12 @@
                   :test-pressure-actual 13.5 :test-pressure-min 13.0 :test-pressure-max 15.0
                   :pressure-test-defect-unresolved? false
                   :unit-dispatched? false :pressure-test-certified? false
-                  :jurisdiction "JPN" :status :intake}
+                  :jurisdiction "JPN" :status :intake
+                  ;; Optional reference into `pressureequip.facts/unit-types`
+                  ;; (the UNSPSC/GTIN concrete-unit-model catalog) -- demo
+                  ;; wiring proving the reference resolves; see
+                  ;; `pressureequip.governor/unit-type-unregistered-violations`.
+                  :unit-type-id :unit/industrial-refrigeration-compressor}
     "unit-2" {:id "unit-2" :unit-name "Atlantis Screw Compressor SC-12"
                   :test-pressure-actual 13.5 :test-pressure-min 13.0 :test-pressure-max 15.0
                   :pressure-test-defect-unresolved? false
@@ -195,7 +200,7 @@
 (defn- unit->tx [{:keys [id unit-name test-pressure-actual test-pressure-min test-pressure-max
                           pressure-test-defect-unresolved?
                           unit-dispatched? pressure-test-certified?
-                          jurisdiction status dispatch-number evidence-number]}]
+                          jurisdiction status dispatch-number evidence-number unit-type-id]}]
   (cond-> {:unit/id id}
     unit-name                                   (assoc :unit/unit-name unit-name)
     test-pressure-actual                        (assoc :unit/test-pressure-actual test-pressure-actual)
@@ -207,13 +212,14 @@
     jurisdiction                                 (assoc :unit/jurisdiction jurisdiction)
     status                                       (assoc :unit/status status)
     dispatch-number                              (assoc :unit/dispatch-number dispatch-number)
-    evidence-number                              (assoc :unit/evidence-number evidence-number)))
+    evidence-number                              (assoc :unit/evidence-number evidence-number)
+    unit-type-id                                 (assoc :unit/unit-type-id unit-type-id)))
 
 (def ^:private unit-pull
   [:unit/id :unit/unit-name :unit/test-pressure-actual
    :unit/test-pressure-min :unit/test-pressure-max
    :unit/pressure-test-defect-unresolved? :unit/unit-dispatched? :unit/pressure-test-certified?
-   :unit/jurisdiction :unit/status :unit/dispatch-number :unit/evidence-number])
+   :unit/jurisdiction :unit/status :unit/dispatch-number :unit/evidence-number :unit/unit-type-id])
 
 (defn- pull->unit [m]
   (when (:unit/id m)
@@ -225,7 +231,8 @@
      :unit-dispatched? (boolean (:unit/unit-dispatched? m))
      :pressure-test-certified? (boolean (:unit/pressure-test-certified? m))
      :jurisdiction (:unit/jurisdiction m) :status (:unit/status m)
-     :dispatch-number (:unit/dispatch-number m) :evidence-number (:unit/evidence-number m)}))
+     :dispatch-number (:unit/dispatch-number m) :evidence-number (:unit/evidence-number m)
+     :unit-type-id (:unit/unit-type-id m)}))
 
 (defrecord DatomicStore [conn]
   Store

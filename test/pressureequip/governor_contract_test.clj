@@ -145,6 +145,22 @@
       (is (some #{:already-certified} (-> (store/ledger db) last :basis)))
       (is (= 1 (count (store/evidence-history db))) "still only the one earlier certificate issuance"))))
 
+(deftest dispatch-unit-with-unregistered-unit-type-is-held
+  (testing "actuation/dispatch-unit for a unit whose declared :unit-type-id does not resolve in pressureequip.facts/unit-types -> HOLD, independent of unit-3/unit-4's own hard checks"
+    (let [[db actor] (fresh)]
+      (store/with-units db
+        {"unit-9" {:id "unit-9" :unit-name "架空型式ユニット"
+                       :unit-type-id :unit/does-not-exist
+                       :test-pressure-actual 13.5 :test-pressure-min 13.0 :test-pressure-max 15.0
+                       :pressure-test-defect-unresolved? false
+                       :unit-dispatched? false :pressure-test-certified? false
+                       :jurisdiction "JPN" :status :intake}})
+      (verify! actor "t11pre" "unit-9")
+      (let [res (exec-op actor "t11" {:op :actuation/dispatch-unit :subject "unit-9"} operator)]
+        (is (= :hold (get-in res [:state :disposition])))
+        (is (some #{:unit-type-unregistered} (-> (store/ledger db) last :basis)))
+        (is (empty? (store/dispatch-history db)))))))
+
 (deftest every-decision-leaves-one-ledger-fact
   (testing "write-only-through-ledger: N operations -> N ledger facts"
     (let [[db actor] (fresh)]

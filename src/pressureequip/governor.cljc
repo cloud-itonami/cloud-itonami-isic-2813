@@ -102,7 +102,17 @@
   `:pressure-test-certified?` facts (never a `:status` value) -- the
   SAME 'check a dedicated boolean, not status' discipline every prior
   sibling governor's guards establish, informed by `cloud-itonami-
-  isic-6492`'s status-lifecycle bug (ADR-2607071320)."
+  isic-6492`'s status-lifecycle bug (ADR-2607071320).
+
+  Addendum (superproject UNSPSC/GTIN-linkage ADR): a SEVENTH HARD
+  check, `unit-type-unregistered-violations`, was added alongside
+  `pressureequip.facts/unit-types` (a concrete-unit-model catalog
+  carrying UNSPSC/GTIN classification data, a separate catalog from
+  the per-jurisdiction `catalog` the six checks above already use).
+  For `:actuation/dispatch-unit`, when the unit declares a
+  `:unit-type-id`, INDEPENDENTLY verify it actually resolves in that
+  catalog -- purely additive (no `:unit-type-id` declared -> no
+  violation), so it changes no existing unit's disposition."
   (:require [pressureequip.facts :as facts]
             [pressureequip.registry :as registry]
             [pressureequip.store :as store]))
@@ -181,6 +191,29 @@
       [{:rule :pressure-test-defect-unresolved
         :detail "未解決の耐圧試験欠陥がある状態での耐圧証明書発行提案は進められない"}])))
 
+(defn- unit-type-unregistered-violations
+  "For `:actuation/dispatch-unit`, when the unit declares a
+  `:unit-type-id` (an OPTIONAL reference into `pressureequip.facts/
+  unit-types`, the concrete-unit-model catalog carrying UNSPSC/GTIN
+  classification data), INDEPENDENTLY verify that reference actually
+  resolves via `facts/unit-type-by-id` -- the SAME anti-fabrication
+  discipline `spec-basis-violations` applies to a jurisdiction
+  citation, applied here to a unit-type reference: never trust a
+  proposal's/unit's say-so that a `:unit-type-id` is real without
+  looking it up. A unit with NO `:unit-type-id` declared (every
+  pre-existing/legacy unit in this store, since the field is new,
+  additive wiring, not a retroactive requirement) is NOT a violation --
+  only a PRESENT-but-unresolvable reference (fabricated or mistyped)
+  HARD-holds."
+  [{:keys [op subject]} st]
+  (when (= op :actuation/dispatch-unit)
+    (let [a (store/unit st subject)
+          unit-type-id (:unit-type-id a)]
+      (when (and (some? unit-type-id) (nil? (facts/unit-type-by-id unit-type-id)))
+        [{:rule :unit-type-unregistered
+          :detail (str subject " の :unit-type-id (" unit-type-id
+                      ") が pressureequip.facts/unit-types に存在しない -- 架空/誤記のユニット型式参照")}]))))
+
 (defn- already-dispatched-violations
   "For `:actuation/dispatch-unit`, refuses to dispatch a unit
   action for the SAME unit twice, off a dedicated `:unit-
@@ -205,13 +238,21 @@
 (defn check
   "Censors a Pressure Equipment Advisor proposal against the governor
   rules. Returns {:ok? bool :violations [..] :confidence c :escalate?
-  bool :high-stakes? bool :hard? bool}."
+  bool :high-stakes? bool :hard? bool}.
+
+  Includes `unit-type-unregistered-violations` -- added alongside this
+  fleet's UNSPSC/GTIN unit-model catalog (`pressureequip.facts/unit-
+  types`) as a SEVENTH hard check, purely additive: it only ever fires
+  for a unit that explicitly declares a `:unit-type-id`, so it changes
+  no existing unit/proposal's disposition (every pre-existing unit in
+  this store has no `:unit-type-id` at all)."
   [request _context proposal st]
   (let [hard (into []
                    (concat (spec-basis-violations request proposal)
                            (evidence-incomplete-violations request st)
                            (unit-test-pressure-out-of-range-violations request st)
                            (pressure-test-defect-unresolved-violations request proposal st)
+                           (unit-type-unregistered-violations request st)
                            (already-dispatched-violations request st)
                            (already-certified-violations request st)))
         conf (:confidence proposal 0.0)
