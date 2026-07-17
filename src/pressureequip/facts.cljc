@@ -53,6 +53,65 @@
 
 (defn spec-basis [iso3] (get catalog iso3))
 
+(def unit-types
+  "Catalog of concrete manufactured UNIT MODELS this actor's units can
+  declare a `:unit-type-id` reference to (a SEPARATE catalog from
+  `catalog` above, which is per-JURISDICTION regulatory evidence, not
+  per-PRODUCT spec data -- this catalog does not replace or alter
+  `catalog`).
+
+  Two classification fields on each entry come from EXTERNAL,
+  independently-verifiable authorities and are reported HONESTLY per
+  this fleet's anti-fabrication discipline (see ns docstring / ADR on
+  UNSPSC/GTIN linkage in the superproject's `90-docs/adr/`):
+
+    `:unspsc-code` -- an 8-digit UNSPSC (United Nations Standard
+    Products and Services Code) COMMODITY code. UNSPSC segment 40
+    ('Distribution and Conditioning Systems and Equipment and
+    Components') / family 40100000 ('Heating and ventilation and air
+    circulation') / class 40101700 ('Cooling equipment and parts and
+    accessories') is confirmed via independent public commodity-code
+    references (e.g. usa.databasesets.com, govtribe.com category
+    listings). Within that class, UNSPSC's own dedicated 'Compressors'
+    commodity family lives in a DIFFERENT class (401516) -- the closest
+    real UNSPSC commodity for a packaged compressor+condenser
+    refrigeration assembly under class 401017 is `40101704`
+    ('Condensing units', confirmed via the same sources plus industry
+    usage, e.g. Copeland/Heatcraft/York cataloguing compressor+condenser
+    assemblies for refrigeration exactly as 'condensing units'). This
+    namespace does NOT fabricate a more specific 8-digit code UNSPSC
+    itself does not publish.
+
+    `:gtin` -- a GTIN (Global Trade Item Number) is NOT a classification
+    taxonomy code at all -- it is an identifier GS1 issues per REGISTERED
+    PHYSICAL PRODUCT, only after a real company enrolls with GS1 and
+    assigns it (see `cloud-itonami-gtin-issuance`'s own README /
+    superproject ADR-2607031800). This catalog is a units-catalog seed,
+    not a GS1 registration record, so every `:gtin` value here is a
+    SYNTACTICALLY VALID but NEVER-ISSUED placeholder: built on GS1's own
+    officially-documented 'Restricted Circulation Number' (RCN) prefix
+    range '020'-'029' (GS1 GSCN-23-006-RCN / gs1.org 'GS1 Company
+    Prefix' docs) -- a prefix range GS1 itself reserves for
+    company-internal/restricted use, i.e. explicitly NOT a
+    globally-unique retail identifier -- with a correctly computed
+    Modulo-10 GTIN-13 check digit (verified against the standard EAN-13
+    worked example 400638133393->1). The sibling key `:gtin/status
+    :unissued-blueprint-placeholder` makes the non-issuance explicit and
+    machine-checkable; treat `:gtin` here as an EXAMPLE VALUE ONLY,
+    never as a real, GS1-issued identifier for an actual unit."
+  {:unit/industrial-refrigeration-compressor
+   {:id :unit/industrial-refrigeration-compressor
+    :name "産業用冷凍・冷蔵倉庫向けコンプレッサーユニット"
+    :refrigerant "R-448A"
+    :cooling-capacity-kw 350.0
+    :power-requirement-kw 90.0
+    :unspsc-code "40101704"
+    :gtin "0212813000010"
+    :gtin/status :unissued-blueprint-placeholder}})
+
+(defn unit-type-by-id [id]
+  (get unit-types id))
+
 (defn coverage
   ([] (coverage (keys catalog)))
   ([iso3s]

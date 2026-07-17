@@ -74,6 +74,14 @@
         (store/append-ledger! s {:op :b :disposition :hold})
         (is (= [:commit :hold] (mapv :disposition (store/ledger s))))))))
 
+(deftest unit-type-id-read-parity
+  (doseq [[label s] (backends)]
+    (testing label
+      (is (= :unit/industrial-refrigeration-compressor (:unit-type-id (store/unit s "unit-1")))
+          "the demo unit's optional unit-types catalog reference round-trips on both backends")
+      (is (nil? (:unit-type-id (store/unit s "unit-2")))
+          "a unit with no declared unit-type-id stays nil, not fabricated"))))
+
 (deftest datomic-empty-store-is-usable
   (let [s (store/datomic-store)]
     (is (nil? (store/unit s "nope")))
