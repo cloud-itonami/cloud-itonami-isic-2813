@@ -31,8 +31,10 @@
       (is (= [] (store/ledger s)))
       (is (= [] (store/dispatch-history s)))
       (is (= [] (store/evidence-history s)))
+      (is (= [] (store/maintenance-notice-history s)))
       (is (zero? (store/next-dispatch-sequence s "JPN")))
       (is (zero? (store/next-evidence-sequence s "JPN")))
+      (is (zero? (store/next-maintenance-notice-sequence s "JPN")))
       (is (false? (store/unit-already-dispatched? s "unit-1")))
       (is (false? (store/unit-already-certified? s "unit-1"))))))
 
@@ -69,6 +71,19 @@
         (is (= 1 (store/next-evidence-sequence s "JPN")))
         (is (true? (store/unit-already-certified? s "unit-1")))
         (is (false? (store/unit-already-certified? s "unit-2"))))
+      (testing "maintenance notice drafts a record, advances the sequence, and allows more than one per unit"
+        (store/commit-record! s {:effect :maintenance-notice/issue :path ["unit-1"]
+                                 :value {:unit-id "unit-1" :dispatch-ref "JPN-PEQ-000000"}})
+        (is (= "JPN-PMN-000000" (get (first (store/maintenance-notice-history s)) "record_id")))
+        (is (= "maintenance-notice-draft" (get (first (store/maintenance-notice-history s)) "kind")))
+        (is (= "JPN-PEQ-000000" (get (first (store/maintenance-notice-history s)) "dispatch_ref")))
+        (is (= 1 (count (store/maintenance-notice-history s))))
+        (is (= 1 (store/next-maintenance-notice-sequence s "JPN")))
+        (store/commit-record! s {:effect :maintenance-notice/issue :path ["unit-1"]
+                                 :value {:unit-id "unit-1" :dispatch-ref "JPN-PEQ-000000"}})
+        (is (= 2 (count (store/maintenance-notice-history s)))
+            "a unit may receive more than one maintenance notice, unlike dispatch/certificate")
+        (is (= "JPN-PMN-000001" (get (second (store/maintenance-notice-history s)) "record_id"))))
       (testing "ledger is append-only and order-preserving"
         (store/append-ledger! s {:op :a :disposition :commit})
         (store/append-ledger! s {:op :b :disposition :hold})
@@ -89,8 +104,10 @@
     (is (= [] (store/ledger s)))
     (is (= [] (store/dispatch-history s)))
     (is (= [] (store/evidence-history s)))
+    (is (= [] (store/maintenance-notice-history s)))
     (is (zero? (store/next-dispatch-sequence s "JPN")))
     (is (zero? (store/next-evidence-sequence s "JPN")))
+    (is (zero? (store/next-maintenance-notice-sequence s "JPN")))
     (store/with-units s {"x" {:id "x" :unit-name "n" :test-pressure-actual 13.5
                                    :test-pressure-min 13.0 :test-pressure-max 15.0
                                    :pressure-test-defect-unresolved? false

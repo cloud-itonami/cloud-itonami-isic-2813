@@ -57,6 +57,17 @@
         (range)
         (store/evidence-history st)))
 
+(defn maintenance-notice-rows [st]
+  (mapv (fn [i r]
+          {:seq i
+           :record_id (get r "record_id")
+           :kind (get r "kind")
+           :unit_id (get r "unit_id")
+           :dispatch_ref (get r "dispatch_ref")
+           :jurisdiction (get r "jurisdiction")})
+        (range)
+        (store/maintenance-notice-history st)))
+
 (defn units-snapshot [st]
   (mapv (fn [b]
           (select-keys b [:id :unit-name :jurisdiction :status
@@ -84,10 +95,12 @@
    :ledger (vec (store/ledger st))
    :dispatches (vec (store/dispatch-history st))
    :pressure-test-certificates (vec (store/evidence-history st))
+   :maintenance-notices (vec (store/maintenance-notice-history st))
    :counts {:units (count (store/all-units st))
             :ledger (count (store/ledger st))
             :dispatches (count (store/dispatch-history st))
-            :pressure-test-certificates (count (store/evidence-history st))}})
+            :pressure-test-certificates (count (store/evidence-history st))
+            :maintenance-notices (count (store/maintenance-notice-history st))}})
 
 (defn rows->csv
   "Render a seq of flat maps as CSV using `header` column order."
@@ -110,7 +123,9 @@
    "dispatches.csv" (rows->csv [:seq :record_id :kind :unit_id :jurisdiction]
                                (dispatch-rows st))
    "pressure-test-certificates.csv" (rows->csv [:seq :record_id :kind :unit_id :jurisdiction]
-                                   (evidence-rows st))})
+                                   (evidence-rows st))
+   "maintenance-notices.csv" (rows->csv [:seq :record_id :kind :unit_id :dispatch_ref :jurisdiction]
+                                        (maintenance-notice-rows st))})
 
 #?(:clj
 (defn write-csv-bundle!

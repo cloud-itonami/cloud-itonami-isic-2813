@@ -145,6 +145,42 @@
       (is (some #{:already-certified} (-> (store/ledger db) last :basis)))
       (is (= 1 (count (store/evidence-history db))) "still only the one earlier certificate issuance"))))
 
+(deftest issue-maintenance-notice-with-no-prior-dispatch-is-held
+  (testing "issue-maintenance-notice for a unit that was never :actuation/dispatch-unit-dispatched -> HOLD, independent of the proposal's own claim"
+    (let [[db actor] (fresh)
+          res (exec-op actor "t12" {:op :issue-maintenance-notice :subject "unit-1"} operator)]
+      (is (= :hold (get-in res [:state :disposition])))
+      (is (some #{:dispatch-ref-unverified} (-> (store/ledger db) last :basis)))
+      (is (empty? (store/maintenance-notice-history db))))))
+
+(deftest issue-maintenance-notice-always-escalates-then-human-decides
+  (testing "a maintenance notice referencing an ACTUALLY dispatched unit still ALWAYS interrupts for human approval -- issue-maintenance-notice is never auto"
+    (let [[db actor] (fresh)
+          _ (verify! actor "t13pre" "unit-1")
+          _ (exec-op actor "t13disp" {:op :actuation/dispatch-unit :subject "unit-1"} operator)
+          _ (approve! actor "t13disp")
+          r1 (exec-op actor "t13" {:op :issue-maintenance-notice :subject "unit-1"} operator)]
+      (is (= :interrupted (:status r1)) "pauses for human approval even when governor-clean")
+      (testing "approve -> commit, maintenance-notice record drafted, referencing the real dispatch-ref"
+        (let [r2 (approve! actor "t13")]
+          (is (= :commit (get-in r2 [:state :disposition])))
+          (is (= 1 (count (store/maintenance-notice-history db))) "one draft maintenance-notice record")
+          (is (= (:dispatch-number (store/unit db "unit-1"))
+                 (get (first (store/maintenance-notice-history db)) "dispatch_ref"))
+              "the committed notice's dispatch_ref matches the unit's own real dispatch-number"))))))
+
+(deftest issue-maintenance-notice-allows-more-than-one-per-unit
+  (testing "unlike dispatch/certificate, a unit may receive more than one maintenance notice over its life"
+    (let [[db actor] (fresh)
+          _ (verify! actor "t14pre" "unit-1")
+          _ (exec-op actor "t14disp" {:op :actuation/dispatch-unit :subject "unit-1"} operator)
+          _ (approve! actor "t14disp")]
+      (exec-op actor "t14a" {:op :issue-maintenance-notice :subject "unit-1"} operator)
+      (approve! actor "t14a")
+      (exec-op actor "t14b" {:op :issue-maintenance-notice :subject "unit-1"} operator)
+      (approve! actor "t14b")
+      (is (= 2 (count (store/maintenance-notice-history db)))))))
+
 (deftest dispatch-unit-with-unregistered-unit-type-is-held
   (testing "actuation/dispatch-unit for a unit whose declared :unit-type-id does not resolve in pressureequip.facts/unit-types -> HOLD, independent of unit-3/unit-4's own hard checks"
     (let [[db actor] (fresh)]

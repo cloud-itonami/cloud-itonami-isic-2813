@@ -57,6 +57,28 @@
   (is (thrown? Exception (r/register-pressure-test-certificate "unit-1" "" 0)))
   (is (thrown? Exception (r/register-pressure-test-certificate "unit-1" "JPN" -1))))
 
+;; ----------------------------- register-maintenance-notice -----------------------------
+
+(deftest maintenance-notice-is-a-draft-not-a-real-notice
+  (let [result (r/register-maintenance-notice "unit-1" "JPN-PEQ-000000" "JPN" 0)]
+    (is (nil? (get-in result ["certificate" "proof"])))
+    (is (= (get-in result ["certificate" "issued_by_registry"]) false))
+    (is (= (get-in result ["certificate" "status"]) "draft-unsigned"))))
+
+(deftest maintenance-notice-assigns-notice-number-and-carries-dispatch-ref
+  (let [result (r/register-maintenance-notice "unit-1" "JPN-PEQ-000000" "JPN" 5)]
+    (is (= (get result "notice_number") "JPN-PMN-000005"))
+    (is (= (get-in result ["record" "unit_id"]) "unit-1"))
+    (is (= (get-in result ["record" "dispatch_ref"]) "JPN-PEQ-000000"))
+    (is (= (get-in result ["record" "kind"]) "maintenance-notice-draft"))
+    (is (= (get-in result ["record" "immutable"]) true))))
+
+(deftest maintenance-notice-validation-rules
+  (is (thrown? Exception (r/register-maintenance-notice "" "JPN-PEQ-000000" "JPN" 0)))
+  (is (thrown? Exception (r/register-maintenance-notice "unit-1" "" "JPN" 0)))
+  (is (thrown? Exception (r/register-maintenance-notice "unit-1" "JPN-PEQ-000000" "" 0)))
+  (is (thrown? Exception (r/register-maintenance-notice "unit-1" "JPN-PEQ-000000" "JPN" -1))))
+
 (deftest history-is-append-only
   (let [c1 (r/register-unit-dispatch "unit-1" "JPN" 0)
         hist (r/append [] c1)

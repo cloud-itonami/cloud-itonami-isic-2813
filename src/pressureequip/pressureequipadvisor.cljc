@@ -154,6 +154,35 @@
      :stake      :actuation/issue-pressure-test-certificate
      :confidence (if a 0.9 0.3)}))
 
+(defn- propose-maintenance-notice
+  "Draft a MAINTENANCE/RECALL NOTICE for a unit, referencing that
+  unit's OWN prior `:actuation/dispatch-unit` -- the superproject
+  `:equipment-asset` shared shape a downstream operator actor (e.g.
+  cloud-itonami-jsic-4721, running its own equipment as this actor's
+  manufactured units) independently cross-checks (no shared code).
+  The advisor reads the unit's OWN recorded `:dispatch-number`
+  directly from the store -- it does not invent a dispatch-ref -- and
+  `pressureequip.governor/dispatch-ref-unverified-violations`
+  INDEPENDENTLY re-verifies this same field before anything commits
+  (never trust the proposal's own echo). ALWAYS `:stake
+  :issue-maintenance-notice` -- like the two actuation ops, this is
+  real-world safety/compliance communication about equipment already
+  in the field, never a draft the actor may auto-run."
+  [db {:keys [subject]}]
+  (let [a (store/unit db subject)
+        dispatch-ref (:dispatch-number a)
+        dispatched? (boolean (and a (:unit-dispatched? a)))]
+    {:summary    (str subject " 向け保守/リコール通知発行提案"
+                      (when a (str " (unit=" (:unit-name a) " dispatch-ref=" dispatch-ref ")")))
+     :rationale  (if dispatched?
+                   (str "unit-dispatched?=true dispatch-number=" dispatch-ref " を参照")
+                   "機体記録が見つからないか、まだ完成機実行されていません")
+     :cites      (if dispatched? [subject dispatch-ref] [])
+     :effect     :maintenance-notice/issue
+     :value      {:unit-id subject :dispatch-ref dispatch-ref}
+     :stake      :issue-maintenance-notice
+     :confidence (if dispatched? 0.9 0.3)}))
+
 (defn infer
   "Route a request to the right proposal generator.
   request: {:op kw :subject id ...op-specific...}"
@@ -164,6 +193,7 @@
     :pressure-test/screen                         (screen-pressure-test-defect db request)
     :actuation/dispatch-unit                      (propose-unit-dispatch db request)
     :actuation/issue-pressure-test-certificate     (propose-pressure-test-certificate db request)
+    :issue-maintenance-notice                     (propose-maintenance-notice db request)
     {:summary "未対応の操作" :rationale (str op) :cites []
      :effect :noop :stake nil :confidence 0.0}))
 
@@ -183,8 +213,9 @@
        "キー: :summary(人向けドラフト) :rationale(根拠/必ず事実から) "
        ":cites(使った事実キーのベクタ) "
        ":effect(:unit/upsert|:verification/set|:pressure-test-screen/set|"
-       ":unit/mark-dispatched|:unit/mark-certified) "
-       ":stake(:actuation/dispatch-unit か :actuation/issue-pressure-test-certificate か nil) :confidence(0..1)。\n"
+       ":unit/mark-dispatched|:unit/mark-certified|:maintenance-notice/issue) "
+       ":stake(:actuation/dispatch-unit か :actuation/issue-pressure-test-certificate か "
+       ":issue-maintenance-notice か nil) :confidence(0..1)。\n"
        "重要: 登録されていない法域の要件を絶対に創作してはいけません。"
        "spec-basisが無い場合は :cites を空にし confidence を上げないこと。"))
 
@@ -194,6 +225,7 @@
     :pressure-test/screen                         {:unit (store/unit st subject)}
     :actuation/dispatch-unit                      {:unit (store/unit st subject)}
     :actuation/issue-pressure-test-certificate     {:unit (store/unit st subject)}
+    :issue-maintenance-notice                     {:unit (store/unit st subject)}
     {:unit (store/unit st subject)}))
 
 (defn- parse-proposal

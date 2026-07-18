@@ -30,16 +30,26 @@
   eligible, at any phase -- the same posture every sibling's screening
   op has. Phase 3's `:auto` set here has only ONE member
   (`:unit/intake`) -- this domain has no separate no-capital-risk
-  'file' lifecycle distinct from the unit record itself.")
+  'file' lifecycle distinct from the unit record itself.
+
+  `:issue-maintenance-notice` (superproject equipment-asset-linkage
+  ADR, cloud-itonami-isic-2813<->cloud-itonami-jsic-4721) joins this
+  same never-auto set: a maintenance/recall notice about equipment
+  already dispatched into the field is real-world safety/compliance
+  communication, given the same human-in-the-loop treatment as the two
+  actuation ops -- `pressureequip.governor`'s `high-stakes` set
+  independently enforces this too.")
 
 (def read-ops  #{})
 (def write-ops #{:unit/intake :design-rules/verify :pressure-test/screen
-                 :actuation/dispatch-unit :actuation/issue-pressure-test-certificate})
+                 :actuation/dispatch-unit :actuation/issue-pressure-test-certificate
+                 :issue-maintenance-notice})
 
 ;; NOTE the invariant: `:actuation/dispatch-unit`/`:actuation/
-;; issue-pressure-test-certificate` are members of `write-ops`
-;; (governor-gated like any write) but are NEVER members of any
-;; phase's `:auto` set below. Do not add them there.
+;; issue-pressure-test-certificate`/`:issue-maintenance-notice` are
+;; members of `write-ops` (governor-gated like any write) but are
+;; NEVER members of any phase's `:auto` set below. Do not add them
+;; there.
 (def phases
   "phase -> {:label .. :writes <ops allowed to write> :auto <ops allowed to
   auto-commit when governor-clean>}."
