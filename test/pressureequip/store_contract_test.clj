@@ -89,6 +89,28 @@
         (store/append-ledger! s {:op :b :disposition :hold})
         (is (= [:commit :hold] (mapv :disposition (store/ledger s))))))))
 
+(deftest equipment-asset-store-parity
+  (testing "equipment-asset registration -- isic-2813's RECEIVE side of the superproject :equipment-asset shared shape, toward an upstream manufacturer actor e.g. cloud-itonami-isic-2822"
+    (doseq [[label s] (backends)]
+      (testing label
+        (is (nil? (store/equipment-asset s "eqa-1")))
+        (is (false? (store/equipment-asset-already-registered? s "eqa-1")))
+        (is (= [] (store/all-equipment-assets s)))
+        (store/commit-record! s {:effect :equipment-asset/register
+                                 :value {:equipment-asset/id "eqa-1"
+                                         :equipment-asset/unit-type-id :unit/industrial-welding-cell
+                                         :equipment-asset/source-actor "cloud-itonami-isic-2822"
+                                         :equipment-asset/dispatch-ref "JPN-MTL-000000"
+                                         :equipment-asset/installed-at-iso "2026-07-18T00:00:00Z"
+                                         :equipment-asset/station-cell "cell:weld-1"}})
+        (is (true? (store/equipment-asset-already-registered? s "eqa-1")))
+        (is (= "cloud-itonami-isic-2822" (:equipment-asset/source-actor (store/equipment-asset s "eqa-1"))))
+        (is (= "JPN-MTL-000000" (:equipment-asset/dispatch-ref (store/equipment-asset s "eqa-1"))))
+        (is (= "cell:weld-1" (:equipment-asset/station-cell (store/equipment-asset s "eqa-1"))))
+        (is (= 1 (count (store/all-equipment-assets s))))
+        (is (false? (store/equipment-asset-already-registered? s "eqa-2"))
+            "a different id is unaffected")))))
+
 (deftest unit-type-id-read-parity
   (doseq [[label s] (backends)]
     (testing label

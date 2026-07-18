@@ -29,6 +29,12 @@
       (is (not (contains? auto :pressure-test/screen))
           (str "phase " n " must not auto-commit :pressure-test/screen")))))
 
+(deftest register-equipment-asset-never-auto-at-any-phase
+  (testing "isic-2813's RECEIVE side of the superproject equipment-asset shared shape is never auto-eligible either, even though it is not in governor/high-stakes -- phase 3's :auto set has only ever had :unit/intake"
+    (doseq [[n {:keys [auto]}] phase/phases]
+      (is (not (contains? auto :register-equipment-asset))
+          (str "phase " n " must not auto-commit :register-equipment-asset")))))
+
 (deftest phase-0-is-fully-read-only
   (is (empty? (:writes (get phase/phases 0)))))
 
@@ -42,7 +48,8 @@
 (deftest gate-escalates-a-clean-non-auto-write
   (is (= :escalate (:disposition (phase/gate 3 {:op :actuation/dispatch-unit} :commit))))
   (is (= :escalate (:disposition (phase/gate 3 {:op :actuation/issue-pressure-test-certificate} :commit))))
-  (is (= :escalate (:disposition (phase/gate 3 {:op :issue-maintenance-notice} :commit)))))
+  (is (= :escalate (:disposition (phase/gate 3 {:op :issue-maintenance-notice} :commit))))
+  (is (= :escalate (:disposition (phase/gate 3 {:op :register-equipment-asset} :commit)))))
 
 (deftest gate-holds-a-write-disabled-in-this-phase
   (is (= :hold (:disposition (phase/gate 0 {:op :unit/intake} :commit)))))

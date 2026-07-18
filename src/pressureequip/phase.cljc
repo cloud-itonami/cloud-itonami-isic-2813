@@ -38,12 +38,23 @@
   already dispatched into the field is real-world safety/compliance
   communication, given the same human-in-the-loop treatment as the two
   actuation ops -- `pressureequip.governor`'s `high-stakes` set
-  independently enforces this too.")
+  independently enforces this too.
+
+  `:register-equipment-asset` (superproject equipment-asset-linkage
+  ADR, cloud-itonami-isic-2822<->cloud-itonami-isic-2813) also joins
+  `write-ops` -- isic-2813's RECEIVE side of the same shared shape it
+  is the ISSUER side of toward cloud-itonami-jsic-4721. It is NOT in
+  `pressureequip.governor/high-stakes` (unlike the two actuation ops
+  and `:issue-maintenance-notice`), but the phase gate below still
+  never auto-commits it in practice: phase 3's `:auto` set has only
+  ever had the one `:unit/intake` member, so this op always escalates
+  once the governor clears it, exactly like `:design-rules/verify`/
+  `:pressure-test/screen` before it.")
 
 (def read-ops  #{})
 (def write-ops #{:unit/intake :design-rules/verify :pressure-test/screen
                  :actuation/dispatch-unit :actuation/issue-pressure-test-certificate
-                 :issue-maintenance-notice})
+                 :issue-maintenance-notice :register-equipment-asset})
 
 ;; NOTE the invariant: `:actuation/dispatch-unit`/`:actuation/
 ;; issue-pressure-test-certificate`/`:issue-maintenance-notice` are

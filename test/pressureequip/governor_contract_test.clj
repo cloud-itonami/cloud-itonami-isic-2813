@@ -197,6 +197,50 @@
         (is (some #{:unit-type-unregistered} (-> (store/ledger db) last :basis)))
         (is (empty? (store/dispatch-history db)))))))
 
+(deftest register-equipment-asset-with-missing-fields-is-held
+  (testing "a :register-equipment-asset proposal missing a required :equipment-asset/* field -> HOLD"
+    (let [[db actor] (fresh)
+          res (exec-op actor "t15"
+                    {:op :register-equipment-asset :subject "eqa-1"
+                     :equipment-asset/source-actor "cloud-itonami-isic-2822"} operator)]
+      (is (= :hold (get-in res [:state :disposition])))
+      (is (some #{:equipment-asset-missing-fields} (-> (store/ledger db) first :basis)))
+      (is (nil? (store/equipment-asset db "eqa-1"))))))
+
+(deftest register-equipment-asset-clean-always-escalates-then-human-decides
+  (testing "a clean, fully-fielded equipment-asset registration still ALWAYS interrupts for human approval -- register-equipment-asset is never auto"
+    (let [[db actor] (fresh)
+          request {:op :register-equipment-asset :subject "eqa-1"
+                   :equipment-asset/unit-type-id :unit/industrial-welding-cell
+                   :equipment-asset/source-actor "cloud-itonami-isic-2822"
+                   :equipment-asset/dispatch-ref "JPN-MTL-000000"
+                   :equipment-asset/installed-at-iso "2026-07-18T00:00:00Z"
+                   :equipment-asset/station-cell "cell:weld-1"}
+          r1 (exec-op actor "t16" request operator)]
+      (is (= :interrupted (:status r1)) "pauses for human approval even when governor-clean")
+      (testing "approve -> commit, equipment-asset registered under this factory's own station-cell"
+        (let [r2 (approve! actor "t16")]
+          (is (= :commit (get-in r2 [:state :disposition])))
+          (is (= "cloud-itonami-isic-2822" (:equipment-asset/source-actor (store/equipment-asset db "eqa-1"))))
+          (is (= "cell:weld-1" (:equipment-asset/station-cell (store/equipment-asset db "eqa-1")))))))))
+
+(deftest register-equipment-asset-double-registration-is-held
+  (testing "registering the same equipment-asset id twice -> HOLD on the second attempt"
+    (let [[db actor] (fresh)
+          request {:op :register-equipment-asset :subject "eqa-1"
+                   :equipment-asset/unit-type-id :unit/industrial-welding-cell
+                   :equipment-asset/source-actor "cloud-itonami-isic-2822"
+                   :equipment-asset/dispatch-ref "JPN-MTL-000000"
+                   :equipment-asset/installed-at-iso "2026-07-18T00:00:00Z"
+                   :equipment-asset/station-cell "cell:weld-1"}
+          _ (exec-op actor "t17a" request operator)
+          _ (approve! actor "t17a")
+          res (exec-op actor "t17" request operator)]
+      (is (= :hold (get-in res [:state :disposition])))
+      (is (some #{:equipment-asset-already-registered} (-> (store/ledger db) last :basis)))
+      (is (= 1 (count (store/all-equipment-assets db)))
+          "still only the one earlier registration"))))
+
 (deftest every-decision-leaves-one-ledger-fact
   (testing "write-only-through-ledger: N operations -> N ledger facts"
     (let [[db actor] (fresh)]

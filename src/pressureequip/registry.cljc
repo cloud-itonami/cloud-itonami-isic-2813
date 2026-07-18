@@ -154,3 +154,22 @@
 
 (defn append [history result]
   (conj (vec history) (get result "record")))
+
+(defn equipment-asset-fields-present?
+  "True when all four REQUIRED `:equipment-asset/*` fields
+  (`:equipment-asset/id`/`:equipment-asset/unit-type-id`/
+  `:equipment-asset/source-actor`/`:equipment-asset/dispatch-ref`) are
+  present on `equipment-asset` -- the RECEIVE-side field-presence rule
+  for the superproject `:equipment-asset` shared shape this actor's
+  own `:register-equipment-asset` op uses (isic-2813 plays the equipment-
+  asset RECEIVER role here, toward an upstream manufacturer actor e.g.
+  cloud-itonami-isic-2822, the mirror image of `:issue-maintenance-
+  notice`'s ISSUER role toward cloud-itonami-jsic-4721). Independently
+  mirrors cloud-itonami-jsic-4721's own `equipment-asset-required-
+  fields-present?` -- no shared code, same four required keys, the same
+  honest discipline `pressureequip.facts` uses: never register a
+  partial/fabricated equipment-asset record."
+  [equipment-asset]
+  (every? some? ((juxt :equipment-asset/id :equipment-asset/unit-type-id
+                       :equipment-asset/source-actor :equipment-asset/dispatch-ref)
+                 equipment-asset)))
