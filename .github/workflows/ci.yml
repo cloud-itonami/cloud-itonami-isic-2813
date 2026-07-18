@@ -3,7 +3,8 @@ name: ci
 # Actions are enabled on the org and this runs on every push/PR (verified
 # 2026-07-18). Local equivalents: `clojure -M:lint`, `clojure -M:dev:test`,
 # `clojure -M:visualize` (needs Node + a Playwright chromium install; see
-# scripts/pw_eval.cjs and the `visualize` job below).
+# scripts/pw_eval.cjs and the `visualize` job below), `clojure -M:tsukuru-
+# bridge` (mock-HTTP-only, see the `tsukuru-bridge` job below).
 #
 # Workspace layout: deps use :local/root to kotoba-lang/langgraph and
 # kotoba-lang/langchain (public), and (for `:visualize` only) the further
@@ -109,3 +110,36 @@ jobs:
       - name: test (3D render-IR visualization E2E, real headless WebGL2 -- pressureequip.scene)
         working-directory: orgs/cloud-itonami/cloud-itonami-isic-2813
         run: clojure -M:visualize
+
+  # OPT-IN tsukuru factory-discovery bridge gate (deps.edn's :tsukuru-bridge
+  # alias -- see its own comment). NOT part of the `test` job above: it needs
+  # kotoba-lang/atproto-client on the classpath, deliberately isolated so a
+  # plain `clojure -M:dev:test` push never needs an AT-Proto client. Unlike
+  # `visualize`, this needs no further :local/root closure (atproto-client's
+  # own deps.edn is self-contained: org.clojure/data.json from Maven only) and
+  # no Node/browser -- it is mock-HTTP-only and NEVER calls the real
+  # `tsukr8u0.etzhayyim.com`.
+  tsukuru-bridge:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { path: orgs/cloud-itonami/cloud-itonami-isic-2813 }
+      - uses: actions/checkout@v4
+        with:
+          repository: kotoba-lang/langgraph
+          path: orgs/kotoba-lang/langgraph
+      - uses: actions/checkout@v4
+        with:
+          repository: kotoba-lang/langchain
+          path: orgs/kotoba-lang/langchain
+      - uses: actions/checkout@v4
+        with:
+          repository: kotoba-lang/atproto-client
+          path: orgs/kotoba-lang/atproto-client
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: "21" }
+      - uses: DeLaGuardo/setup-clojure@13.0
+        with: { cli: latest }
+      - name: test (tsukuru factory-discovery bridge, mock IHttp only)
+        working-directory: orgs/cloud-itonami/cloud-itonami-isic-2813
+        run: clojure -M:tsukuru-bridge
