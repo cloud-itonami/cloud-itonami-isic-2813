@@ -7,6 +7,26 @@
 ;; `pressureequip.assembly/step-parts-consistent?`
 ;; (test/pressureequip/assembly_test.cljc). Hand-authored, illustrative
 ;; station durations -- not a real line-balancing study.
+;;
+;; Additive-manufacturing station (ADR-2800000400): a new `st:am-print`
+;; station (seq 4, cell "cell:am-print-1") was added ahead of the
+;; renumbered `st:coil-fan-assembly` (now seq 5) -- ONE new station, ONE
+;; part swapped (see compressor-unit-bom.edn's `part:am-fan-housing`),
+;; every other station/part UNCHANGED (still 16 BOM lines; station count
+;; is 11 -> 12). `cell:am-print-1` is this factory's own `:station/cell`
+;; for an industrial metal additive-manufacturing (3D-printing) system --
+;; the SAME kind of unit cloud-itonami-isic-2822's own
+;; `machinetool.facts/unit-types` now catalogs as
+;; `:unit/metal-additive-manufacturing-system` (UNSPSC 23261505). This
+;; file does NOT wire any governor/code linkage -- it is a DATA/comment-
+;; level cross-reference only, exactly like the pre-existing
+;; `cell:weld-1`/`cell:assembly-1`/`cell:brazing-1`/`cell:electrical-1`/
+;; `cell:paint-1` cells already are toward isic-2822's welding-cell/CNC
+;; unit types (ADR-2800000200/2800000300): were isic-2813 to actually
+;; receive a metal-AM system dispatched by isic-2822, it would register
+;; it as an `:equipment-asset` tied to `cell:am-print-1` via this repo's
+;; EXISTING `:register-equipment-asset` op (`pressureequip.governor`) --
+;; no new op/governor rule was added for this station.
 {:prod-order/of :unit/industrial-refrigeration-compressor
  :prod-order/takt-s 480.0
  :prod-order/stations
@@ -23,21 +43,32 @@
    :station/parts ["part:compressor-body" "part:electric-motor" "part:vibration-isolators"
                    "part:compressor-mount-bolt-set" "part:motor-mount-bolt-set"]}
 
-  {:station/seq 4 :station/id "st:coil-fan-assembly" :station/name "Condenser coil + fan assembly"
+  ;; New (ADR-2800000400): prints `part:am-fan-housing` (integrated
+  ;; condenser-fan housing/impeller) on a metal powder-bed-fusion
+  ;; additive-manufacturing system before the next station installs it.
+  ;; Cycle time is illustrative but deliberately much longer than this
+  ;; line's other station cycle-s values (metal PBF builds -- print +
+  ;; depowder + support removal -- routinely run hours per build, unlike
+  ;; the machining/assembly stations' minutes-scale cycles).
+  {:station/seq 4 :station/id "st:am-print" :station/name "Additive-manufacturing print (fan housing/impeller)"
+   :station/op "am-print" :station/cell "cell:am-print-1" :station/cycle-s 18000.0
+   :station/parts ["part:am-fan-housing"]}
+
+  {:station/seq 5 :station/id "st:coil-fan-assembly" :station/name "Condenser coil + fan assembly"
    :station/op "coil-fan-assembly" :station/cell "cell:assembly-2" :station/cycle-s 2400.0
-   :station/parts ["part:condenser-coil" "part:fan-assembly"
+   :station/parts ["part:condenser-coil" "part:am-fan-housing"
                    "part:condenser-coil-bolt-set" "part:fan-assembly-bolt-set"]}
 
-  {:station/seq 5 :station/id "st:piping" :station/name "Refrigerant piping (braze)"
+  {:station/seq 6 :station/id "st:piping" :station/name "Refrigerant piping (braze)"
    :station/op "piping" :station/cell "cell:brazing-1" :station/cycle-s 3600.0
    :station/parts ["part:piping"]}
 
-  {:station/seq 6 :station/id "st:panel-wiring" :station/name "Control panel + wiring"
+  {:station/seq 7 :station/id "st:panel-wiring" :station/name "Control panel + wiring"
    :station/op "panel-wiring" :station/cell "cell:electrical-1" :station/cycle-s 2400.0
    :station/parts ["part:control-panel" "part:wiring-harness"
                    "part:control-panel-fastener-set" "part:wiring-harness-clamp-set"]}
 
-  {:station/seq 7 :station/id "st:refrigerant-charge" :station/name "Refrigerant charge (R-448A)"
+  {:station/seq 8 :station/id "st:refrigerant-charge" :station/name "Refrigerant charge (R-448A)"
    :station/op "refrigerant-charge" :station/cell "cell:charge-1" :station/cycle-s 1800.0
    :station/parts ["part:refrigerant-charge"]}
 
@@ -50,21 +81,21 @@
   ;; DATA/comment-level cross-reference ONLY -- no governor code is wired
   ;; to this EDN in this change (intentionally out of scope; see the ADR
   ;; that introduced this file).
-  {:station/seq 8 :station/id "st:pressure-test" :station/name "Hydrostatic / pneumatic pressure test"
+  {:station/seq 9 :station/id "st:pressure-test" :station/name "Hydrostatic / pneumatic pressure test"
    :station/op "pressure-test" :station/cell "" :station/cycle-s 1800.0
    :station/parts [] :station/evidence-produced "hydrostatic-pneumatic-pressure-test-report"}
 
-  {:station/seq 9 :station/id "st:paint" :station/name "Finish paint"
+  {:station/seq 10 :station/id "st:paint" :station/name "Finish paint"
    :station/op "paint" :station/cell "cell:paint-1" :station/cycle-s 1800.0
    :station/parts []}
 
-  {:station/seq 10 :station/id "st:qc" :station/name "Final QC"
+  {:station/seq 11 :station/id "st:qc" :station/name "Final QC"
    :station/op "qc" :station/cell "" :station/cycle-s 900.0
    :station/parts []}
 
   ;; Feeds `pressureequip.governor`'s `:actuation/dispatch-unit` op (this
   ;; repo's HARD-HOLD-gated actuation, per pressureequip.governor's ns
   ;; docstring) -- comment-level cross-reference only, no code wiring here.
-  {:station/seq 11 :station/id "st:ship-decision" :station/name "Ship / dispatch decision"
+  {:station/seq 12 :station/id "st:ship-decision" :station/name "Ship / dispatch decision"
    :station/op "ship-decision" :station/cell "" :station/cycle-s 300.0
    :station/parts []}]}

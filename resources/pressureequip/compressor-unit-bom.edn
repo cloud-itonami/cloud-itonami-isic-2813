@@ -22,12 +22,25 @@
 ;; part list. Each fastener line is consumed at exactly the station
 ;; that actually does that fastening (see compressor-unit-prod-
 ;; order.edn's `:station/parts`), never a bare loose orphan line.
+;;
+;; Additive-manufacturing swap (ADR-2800000400): the original
+;; `part:fan-assembly` line ("Condenser fan assembly", a generic
+;; bolted-sheet-metal-housing + separate-blade subassembly) is
+;; replaced 1-for-1 below by `part:am-fan-housing`, an integrated
+;; (single-piece) metal-3D-printed fan housing/impeller -- the kind of
+;; complex, thin-walled, curved-blade geometry additive manufacturing
+;; is well suited to and traditional sheet-metal fabrication is not.
+;; Net BOM line count is UNCHANGED (still 16: the same 10 original +
+;; 6 fastener lines, just this one line's content swapped) -- see
+;; compressor-unit-prod-order.edn's new `st:am-print` station comment
+;; for the equipment-asset link to cloud-itonami-isic-2822's
+;; `:unit/metal-additive-manufacturing-system`.
 {:bom/of :unit/industrial-refrigeration-compressor
  :bom/parts
  [{:part/id "part:compressor-body" :part/name "Compressor body (screw/reciprocating block)" :part/qty 1}
   {:part/id "part:electric-motor" :part/name "Electric drive motor" :part/qty 1}
   {:part/id "part:condenser-coil" :part/name "Condenser coil" :part/qty 1}
-  {:part/id "part:fan-assembly" :part/name "Condenser fan assembly" :part/qty 2}
+  {:part/id "part:am-fan-housing" :part/name "Additively-manufactured condenser fan housing/impeller (integrated single-piece, metal powder-bed-fusion 3D print)" :part/qty 2}
   {:part/id "part:control-panel" :part/name "Control panel (NEMA/IP-rated enclosure)" :part/qty 1}
   {:part/id "part:piping" :part/name "Refrigerant piping (suction / discharge / liquid lines)" :part/qty 1}
   {:part/id "part:refrigerant-charge" :part/name "Refrigerant charge (R-448A)" :part/qty 1}
@@ -38,6 +51,6 @@
   {:part/id "part:compressor-mount-bolt-set" :part/name "Compressor mounting bolt/washer/nut set (through vibration isolators)" :part/qty 4}
   {:part/id "part:motor-mount-bolt-set" :part/name "Electric motor mounting bolt/washer/nut set" :part/qty 4}
   {:part/id "part:condenser-coil-bolt-set" :part/name "Condenser coil bracket mounting bolt set" :part/qty 4}
-  {:part/id "part:fan-assembly-bolt-set" :part/name "Condenser fan mounting bolt set (per fan)" :part/qty 8}
+  {:part/id "part:fan-assembly-bolt-set" :part/name "Condenser fan housing mounting bolt set (per fan, mounts part:am-fan-housing)" :part/qty 8}
   {:part/id "part:control-panel-fastener-set" :part/name "Control panel enclosure mounting screw set" :part/qty 6}
   {:part/id "part:wiring-harness-clamp-set" :part/name "Wiring harness retaining clamp set" :part/qty 4}]}
