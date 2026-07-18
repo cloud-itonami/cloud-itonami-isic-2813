@@ -47,8 +47,10 @@
   (ledger [s])
   (dispatch-history [s] "the append-only unit-dispatch history (pressureequip.registry drafts)")
   (evidence-history [s] "the append-only pressure-test-certificate history (pressureequip.registry drafts)")
+  (maintenance-notice-history [s] "the append-only maintenance/recall-notice history (pressureequip.registry drafts) -- a unit may appear more than once, unlike dispatch/evidence")
   (next-dispatch-sequence [s jurisdiction] "next dispatch-number sequence for a jurisdiction")
   (next-evidence-sequence [s jurisdiction] "next evidence-number sequence for a jurisdiction")
+  (next-maintenance-notice-sequence [s jurisdiction] "next maintenance-notice-number sequence for a jurisdiction")
   (unit-already-dispatched? [s unit-id] "has this unit's action already been dispatched?")
   (unit-already-certified? [s unit-id] "has this unit's pressure-test certificate already been issued?")
   (commit-record! [s record] "apply a committed op's record to the SSoT")
@@ -117,6 +119,19 @@
      :unit-patch {:pressure-test-certified? true
                       :evidence-number (get result "evidence_number")}}))
 
+(defn- issue-maintenance-notice!
+  "Backend-agnostic `:maintenance-notice/issue` -- looks up the unit
+  via the protocol and drafts the maintenance/recall-notice record.
+  Returns {:result ..} for the caller to persist -- unlike
+  `dispatch-unit!`/`issue-pressure-test-certificate!`, there is no
+  `:unit-patch`: a unit may receive many maintenance notices over its
+  life, so there is no dedicated single-shot `:unit-*?` boolean to
+  flip."
+  [s unit-id dispatch-ref]
+  (let [a (unit s unit-id)
+        seq-n (next-maintenance-notice-sequence s (:jurisdiction a))]
+    {:result (registry/register-maintenance-notice unit-id dispatch-ref (:jurisdiction a) seq-n)}))
+
 ;; ----------------------------- MemStore (default) -----------------------------
 
 (defrecord MemStore [a]
@@ -128,8 +143,10 @@
   (ledger [_] (:ledger @a))
   (dispatch-history [_] (:dispatches @a))
   (evidence-history [_] (:evidences @a))
+  (maintenance-notice-history [_] (:maintenance-notices @a))
   (next-dispatch-sequence [_ jurisdiction] (get-in @a [:dispatch-sequences jurisdiction] 0))
   (next-evidence-sequence [_ jurisdiction] (get-in @a [:evidence-sequences jurisdiction] 0))
+  (next-maintenance-notice-sequence [_ jurisdiction] (get-in @a [:maintenance-notice-sequences jurisdiction] 0))
   (unit-already-dispatched? [_ unit-id] (boolean (get-in @a [:units unit-id :unit-dispatched?])))
   (unit-already-certified? [_ unit-id] (boolean (get-in @a [:units unit-id :pressure-test-certified?])))
   (commit-record! [s {:keys [effect path value payload]}]
@@ -164,6 +181,16 @@
                        (update-in [:units unit-id] merge unit-patch)
                        (update :evidences registry/append result))))
         result)
+
+      :maintenance-notice/issue
+      (let [unit-id (first path)
+            {:keys [result]} (issue-maintenance-notice! s unit-id (:dispatch-ref value))
+            jurisdiction (:jurisdiction (unit s unit-id))]
+        (swap! a (fn [state]
+                   (-> state
+                       (update-in [:maintenance-notice-sequences jurisdiction] (fnil inc 0))
+                       (update :maintenance-notices registry/append result))))
+        result)
       nil)
     s)
   (append-ledger! [_ fact] (swap! a update :ledger conj fact) fact)
@@ -175,7 +202,8 @@
   []
   (->MemStore (atom (assoc (demo-data)
                            :verifications {} :pressure-screens {} :ledger [] :dispatch-sequences {}
-                           :dispatches [] :evidence-sequences {} :evidences []))))
+                           :dispatches [] :evidence-sequences {} :evidences []
+                           :maintenance-notice-sequences {} :maintenance-notices []))))
 
 ;; ----------------------------- DatomicStore (langchain.db) -----------------------------
 
@@ -191,8 +219,10 @@
    :ledger/seq                         {:db/unique :db.unique/identity}
    :dispatch/seq                       {:db/unique :db.unique/identity}
    :evidence/seq                       {:db/unique :db.unique/identity}
+   :maintenance-notice/seq             {:db/unique :db.unique/identity}
    :dispatch-sequence/jurisdiction     {:db/unique :db.unique/identity}
-   :evidence-sequence/jurisdiction     {:db/unique :db.unique/identity}})
+   :evidence-sequence/jurisdiction     {:db/unique :db.unique/identity}
+   :maintenance-notice-sequence/jurisdiction {:db/unique :db.unique/identity}})
 
 (defn- enc [v] (pr-str v))
 (defn- dec* [s] (when s (edn/read-string s)))
@@ -262,6 +292,10 @@
     (->> (d/q '[:find ?s ?r :where [?e :evidence/seq ?s] [?e :evidence/record ?r]] (d/db conn))
          (sort-by first)
          (mapv (comp dec* second))))
+  (maintenance-notice-history [_]
+    (->> (d/q '[:find ?s ?r :where [?e :maintenance-notice/seq ?s] [?e :maintenance-notice/record ?r]] (d/db conn))
+         (sort-by first)
+         (mapv (comp dec* second))))
   (next-dispatch-sequence [_ jurisdiction]
     (or (d/q '[:find ?n . :in $ ?j
               :where [?e :dispatch-sequence/jurisdiction ?j] [?e :dispatch-sequence/next ?n]]
@@ -270,6 +304,11 @@
   (next-evidence-sequence [_ jurisdiction]
     (or (d/q '[:find ?n . :in $ ?j
               :where [?e :evidence-sequence/jurisdiction ?j] [?e :evidence-sequence/next ?n]]
+            (d/db conn) jurisdiction)
+        0))
+  (next-maintenance-notice-sequence [_ jurisdiction]
+    (or (d/q '[:find ?n . :in $ ?j
+              :where [?e :maintenance-notice-sequence/jurisdiction ?j] [?e :maintenance-notice-sequence/next ?n]]
             (d/db conn) jurisdiction)
         0))
   (unit-already-dispatched? [s unit-id]
@@ -307,6 +346,16 @@
                      [(unit->tx (assoc unit-patch :id unit-id))
                       {:evidence-sequence/jurisdiction jurisdiction :evidence-sequence/next next-n}
                       {:evidence/seq (count (evidence-history s)) :evidence/record (enc (get result "record"))}])
+        result)
+
+      :maintenance-notice/issue
+      (let [unit-id (first path)
+            {:keys [result]} (issue-maintenance-notice! s unit-id (:dispatch-ref value))
+            jurisdiction (:jurisdiction (unit s unit-id))
+            next-n (inc (next-maintenance-notice-sequence s jurisdiction))]
+        (d/transact! conn
+                     [{:maintenance-notice-sequence/jurisdiction jurisdiction :maintenance-notice-sequence/next next-n}
+                      {:maintenance-notice/seq (count (maintenance-notice-history s)) :maintenance-notice/record (enc (get result "record"))}])
         result)
       nil)
     s)

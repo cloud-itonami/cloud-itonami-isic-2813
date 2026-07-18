@@ -78,6 +78,7 @@ pressure-equipment plant's own acts.
 | `:pressure-test/screen` | ASME BPVC/PED hydrostatic/pneumatic pressure-test screen (HARD hold if unresolved) |
 | `:actuation/dispatch-unit` | draft unit-dispatch record (always human) |
 | `:actuation/issue-pressure-test-certificate` | draft pressure-test-certificate record (always human) |
+| `:issue-maintenance-notice` | draft maintenance/recall-notice record referencing a prior dispatch (always human; independently verified against dispatch history) |
 
 ## Social / regulatory hand-off
 

@@ -112,7 +112,23 @@
   For `:actuation/dispatch-unit`, when the unit declares a
   `:unit-type-id`, INDEPENDENTLY verify it actually resolves in that
   catalog -- purely additive (no `:unit-type-id` declared -> no
-  violation), so it changes no existing unit's disposition."
+  violation), so it changes no existing unit's disposition.
+
+  Addendum 2 (superproject equipment-asset-linkage ADR,
+  cloud-itonami-isic-2813<->cloud-itonami-jsic-4721): an EIGHTH HARD
+  check, `dispatch-ref-unverified-violations`, was added alongside the
+  new `:issue-maintenance-notice` op. For `:issue-maintenance-notice`,
+  INDEPENDENTLY verify (never trust the proposal's own echo) that the
+  unit this notice names was actually already `:actuation/dispatch-
+  unit`-dispatched by THIS actor and that the proposal's claimed
+  `:dispatch-ref` matches the unit's own recorded `:dispatch-number`
+  -- the same 'never trust a reference to a prior record, always
+  re-look-it-up' discipline `unit-type-unregistered-violations`
+  established for a unit-type reference, applied here to a
+  dispatch-ref reference. `:issue-maintenance-notice` also joins
+  `high-stakes` (below): a maintenance/recall notice about equipment
+  already in the field always escalates to a human, exactly like the
+  two actuation ops."
   (:require [pressureequip.facts :as facts]
             [pressureequip.registry :as registry]
             [pressureequip.store :as store]))
@@ -126,7 +142,8 @@
   the two real-world actuation events this actor performs -- a
   two-member set, matching every prior dual-actuation sibling's
   shape."
-  #{:actuation/dispatch-unit :actuation/issue-pressure-test-certificate})
+  #{:actuation/dispatch-unit :actuation/issue-pressure-test-certificate
+    :issue-maintenance-notice})
 
 ;; ----------------------------- checks -----------------------------
 
@@ -214,6 +231,29 @@
           :detail (str subject " の :unit-type-id (" unit-type-id
                       ") が pressureequip.facts/unit-types に存在しない -- 架空/誤記のユニット型式参照")}]))))
 
+(defn- dispatch-ref-unverified-violations
+  "For `:issue-maintenance-notice`, INDEPENDENTLY verify that the unit
+  named by `subject` was actually already `:actuation/dispatch-unit`-
+  dispatched by THIS actor, and that the proposal's claimed
+  `:dispatch-ref` (`(:value proposal)`'s `:dispatch-ref`) matches the
+  unit's own recorded `:dispatch-number` -- never trust the proposal's
+  own echo of a prior record, the SAME anti-fabrication discipline
+  `unit-type-unregistered-violations` applies to a unit-type
+  reference, applied here to a dispatch-ref reference into THIS
+  actor's own dispatch history. A unit that was never dispatched (or a
+  `:dispatch-ref` that doesn't match its own recorded dispatch-number)
+  HARD-holds; there is no override."
+  [{:keys [op subject]} proposal st]
+  (when (= op :issue-maintenance-notice)
+    (let [a (store/unit st subject)
+          claimed (:dispatch-ref (:value proposal))]
+      (when-not (and (:unit-dispatched? a) (some? claimed) (= claimed (:dispatch-number a)))
+        [{:rule :dispatch-ref-unverified
+          :detail (str subject " の :dispatch-ref (" claimed
+                      ") が実際の完成機実行記録(dispatch-number=" (:dispatch-number a)
+                      ", unit-dispatched?=" (boolean (:unit-dispatched? a))
+                      ")と一致しない -- 未実行または架空のdispatch-ref参照")}]))))
+
 (defn- already-dispatched-violations
   "For `:actuation/dispatch-unit`, refuses to dispatch a unit
   action for the SAME unit twice, off a dedicated `:unit-
@@ -245,7 +285,10 @@
   types`) as a SEVENTH hard check, purely additive: it only ever fires
   for a unit that explicitly declares a `:unit-type-id`, so it changes
   no existing unit/proposal's disposition (every pre-existing unit in
-  this store has no `:unit-type-id` at all)."
+  this store has no `:unit-type-id` at all). Also includes
+  `dispatch-ref-unverified-violations` -- an EIGHTH hard check added
+  alongside `:issue-maintenance-notice` (see ns docstring Addendum 2),
+  purely additive: it only ever fires for that op."
   [request _context proposal st]
   (let [hard (into []
                    (concat (spec-basis-violations request proposal)
@@ -253,6 +296,7 @@
                            (unit-test-pressure-out-of-range-violations request st)
                            (pressure-test-defect-unresolved-violations request proposal st)
                            (unit-type-unregistered-violations request st)
+                           (dispatch-ref-unverified-violations request proposal st)
                            (already-dispatched-violations request st)
                            (already-certified-violations request st)))
         conf (:confidence proposal 0.0)
