@@ -181,7 +181,36 @@
   required identity fields is a fabricated/incomplete reference and
   HARD-holds. Deliberately NOT added to `high-stakes` (bookkeeping,
   like `:register-equipment-asset`) and NOT added to any phase's
-  `:auto` set."
+  `:auto` set.
+
+  Addendum 5 (superproject independent-verification-of-self-issued-
+  certificates ADR, cloud-itonami-isic-2813<->cloud-itonami-isic-7120):
+  a FOURTEENTH HARD check, `testlab-engagement-ref-missing-
+  violations`, was added for `:actuation/issue-pressure-test-
+  certificate` -- this actor's own pressure-test certificate has been
+  a wholly SELF-issued act (this Governor hard-checks this actor's own
+  measured test pressure/evidence/defect status, but never an
+  INDEPENDENT third party) ever since R0, the exact structural gap
+  ADR-2607176500's disclosure-integrity finding (self-attestation
+  alone is not sufficient) names. `:actuation/issue-pressure-test-
+  certificate` now REQUIRES a `:certification/testlab-engagement-ref`
+  naming a completed engagement + issued certification number at the
+  independent third-party accredited testing laboratory actor
+  `cloud-itonami-isic-7120` (`testlab.store`/`testlab.registry`) --
+  UNLIKE Addendum 4's `:handoff` (optional on a part receipt), this
+  reference is MANDATORY: its total absence is itself the violation,
+  not merely fabrication once present. This is an intentional BREAKING
+  change to this op's existing call contract (like isic-1075's own
+  `:coordinate-shipment` `:handoff`-required change, ADR-2607177600) --
+  a pressure-test certificate proposal that omits the reference now
+  HARD-holds where it previously could clear this ns's other checks.
+  Same fleet-standalone-convention limitation as every prior handoff-
+  style check: this actor cannot call isic-7120's own store directly
+  (no shared `:local/root`/API dependency), so it can only verify the
+  REFERENCE's own wire-shape completeness (`registry/testlab-
+  engagement-ref-fields-present?`), not reach across and confirm the
+  referenced engagement/certification actually exists on isic-7120's
+  live store."
   (:require [pressureequip.facts :as facts]
             [pressureequip.registry :as registry]
             [pressureequip.store :as store]))
@@ -402,6 +431,30 @@
         [{:rule :part-receipt-handoff-incomplete
           :detail "handoff参照が付与されているが必須フィールド(:handoff/id・:handoff/source-actor・:handoff/batch-id)が不足 -- 架空/不完全なhandoff参照は登録できない"}]))))
 
+(defn- testlab-engagement-ref-missing-violations
+  "For `:actuation/issue-pressure-test-certificate`, the proposal's
+  `:value` must carry a complete `:certification/testlab-engagement-
+  ref` (`registry/testlab-engagement-ref-fields-present?`) -- a
+  reference into the independent third-party accredited testing
+  laboratory actor `cloud-itonami-isic-7120`'s own completed
+  engagement + issued certification number. Unlike every other HARD
+  check in this ns, which re-verifies THIS actor's own ground-truth
+  fields, this one exists because self-attestation alone is not
+  enough: a pressure-test certificate issued purely by the
+  manufacturer that built the equipment, with no independent
+  verification, is the structural gap ADR-2607176500's disclosure-
+  integrity finding warns against (see ns docstring Addendum 5). A
+  MISSING reference is refused exactly like an INCOMPLETE one --
+  unlike `:handoff` on a part receipt, this reference is NOT optional,
+  so absence itself is the violation, not just fabrication once
+  present."
+  [{:keys [op]} proposal]
+  (when (= op :actuation/issue-pressure-test-certificate)
+    (when-not (registry/testlab-engagement-ref-fields-present?
+               (:certification/testlab-engagement-ref (:value proposal)))
+      [{:rule :testlab-engagement-ref-missing
+        :detail "第三者検定機関(cloud-itonami-isic-7120)のengagement/certification参照(:certification/testlab-engagement-ref)が無い、または不完全 -- 自己発行のみでの耐圧証明書発行は許可されない"}])))
+
 (defn check
   "Censors a Pressure Equipment Advisor proposal against the governor
   rules. Returns {:ok? bool :violations [..] :confidence c :escalate?
@@ -425,7 +478,12 @@
   -- an ELEVENTH, TWELFTH and THIRTEENTH hard check added alongside
   `:register-part-receipt` (superproject part-supplier-linkage ADR,
   ADR-2800000500), purely additive: all three only ever fire for that
-  op, and the third only when a `:handoff` map is actually present."
+  op, and the third only when a `:handoff` map is actually present.
+  Also includes `testlab-engagement-ref-missing-violations` -- a
+  FOURTEENTH hard check (see ns docstring Addendum 5), a BREAKING
+  change for `:actuation/issue-pressure-test-certificate`: unlike
+  every other op-scoped check above, this one fires on a MISSING
+  field, not only a fabricated/incomplete one."
   [request _context proposal st]
   (let [hard (into []
                    (concat (spec-basis-violations request proposal)
@@ -440,7 +498,8 @@
                            (equipment-asset-already-registered-violations request st)
                            (part-receipt-missing-fields-violations request proposal)
                            (part-receipt-already-registered-violations request st)
-                           (part-receipt-handoff-incomplete-violations request proposal)))
+                           (part-receipt-handoff-incomplete-violations request proposal)
+                           (testlab-engagement-ref-missing-violations request proposal)))
         conf (:confidence proposal 0.0)
         low? (< conf confidence-floor)
         stakes? (boolean (high-stakes (:stake proposal)))

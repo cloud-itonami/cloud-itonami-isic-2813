@@ -214,3 +214,36 @@
   cloud-itonami-jsic-4721's own handoff-compatibility check uses."
   [handoff]
   (every? some? ((juxt :handoff/id :handoff/source-actor :handoff/batch-id) handoff)))
+
+;; ----------------------------- testlab-engagement-ref (additive) -----------------------------
+;;
+;; Independent third-party verification of a pressure-test
+;; certificate -- superproject ADR (independent-verification-of-
+;; self-issued-certificates), the ADR-2607176500 SecurityIncidentGovernor
+;; `disclosure-integrity` theme (self-attestation alone is not enough)
+;; applied to this actor's own `:actuation/issue-pressure-test-
+;; certificate`. DISTINCT from `handoff-fields-present?` above: a
+;; `:handoff` on a part receipt is entirely OPTIONAL traceability into
+;; a SUPPLY chain; `:certification/testlab-engagement-ref` is a
+;; MANDATORY reference into an independent accredited testing
+;; laboratory actor (cloud-itonami-isic-7120, `testlab.store`'s own
+;; engagement `:id` + `testlab.registry/register-certification`'s own
+;; issued certification number) that this actor cannot skip.
+
+(defn testlab-engagement-ref-fields-present?
+  "True when `ref` (the `:certification/testlab-engagement-ref` value
+  on an `:actuation/issue-pressure-test-certificate` proposal) carries
+  all three REQUIRED `:testlab-engagement-ref/*` identity fields
+  (`:testlab-engagement-ref/id`/`:testlab-engagement-ref/source-
+  actor`/`:testlab-engagement-ref/certification-number`) -- called on
+  EVERY such proposal (unlike `handoff-fields-present?`, this
+  reference is MANDATORY, not optional: see `pressureequip.governor/
+  testlab-engagement-ref-missing-violations`, which also treats a
+  wholly ABSENT `ref` as the same violation, not a separate one).
+  `nil` (the field entirely absent) is NOT present, the same honest
+  'never trust a bare presence flag' discipline `equipment-asset-
+  fields-present?` establishes."
+  [ref]
+  (and (map? ref)
+       (every? some? ((juxt :testlab-engagement-ref/id :testlab-engagement-ref/source-actor
+                            :testlab-engagement-ref/certification-number) ref))))
