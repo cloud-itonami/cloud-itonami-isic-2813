@@ -160,7 +160,28 @@
   dispatched, mirroring jsic-4721's own non-high-stakes treatment of
   the identical op. It still never auto-commits in practice, because
   `pressureequip.phase`'s phase-3 `:auto` set has only ever had the one
-  `:unit/intake` member."
+  `:unit/intake` member.
+
+  Addendum 4 (superproject part-supplier-linkage ADR,
+  cloud-itonami-isic-2813<->cloud-itonami-isic-2710, ADR-2800000500):
+  an ELEVENTH, TWELFTH and THIRTEENTH HARD check,
+  `part-receipt-missing-fields-violations`/`part-receipt-already-
+  registered-violations`/`part-receipt-handoff-incomplete-
+  violations`, were added alongside a new `:register-part-receipt`
+  op -- isic-2813's RECEIVE side of the superproject `:handoff`
+  shared shape (ADR-2607177600, reused as-is, no new shape) for BOM
+  consumable/component parts (resources/pressureequip/compressor-
+  unit-bom.edn, e.g. `part:electric-motor`), DISTINCT from Addendum
+  3's `:register-equipment-asset` (fixed capital this factory
+  OPERATES) -- a part receipt is a consumable/component this factory
+  CONSUMES into its own BOM, received repeatedly. `:handoff` is
+  entirely OPTIONAL on a part receipt (unlike the four required
+  `:equipment-asset/*` fields): a receipt with no `:handoff` at all is
+  never held; a `:handoff` that IS present but missing its own
+  required identity fields is a fabricated/incomplete reference and
+  HARD-holds. Deliberately NOT added to `high-stakes` (bookkeeping,
+  like `:register-equipment-asset`) and NOT added to any phase's
+  `:auto` set."
   (:require [pressureequip.facts :as facts]
             [pressureequip.registry :as registry]
             [pressureequip.store :as store]))
@@ -333,6 +354,54 @@
       [{:rule :equipment-asset-already-registered
         :detail (str subject " は既に設備資産として登録済み")}])))
 
+(defn- part-receipt-missing-fields-violations
+  "For `:register-part-receipt`, the proposal's `:value` must carry
+  both required `:part-receipt/*` fields
+  (`registry/part-receipt-fields-present?`) -- this actor never
+  registers a receipt for an unnamed part. DISTINCT from
+  `equipment-asset-missing-fields-violations`: an equipment asset is
+  fixed capital this factory operates; a part receipt is a
+  consumable/component this factory consumes into its own BOM
+  (resources/pressureequip/compressor-unit-bom.edn)."
+  [{:keys [op]} proposal]
+  (when (= op :register-part-receipt)
+    (when-not (registry/part-receipt-fields-present? (:value proposal))
+      [{:rule :part-receipt-missing-fields
+        :detail "部品受入登録提案に必須フィールド(:part-receipt/id・:part-receipt/part-id)が不足 -- 未確認/架空の部品受入は登録できない"}])))
+
+(defn- part-receipt-already-registered-violations
+  "For `:register-part-receipt`, refuses to register the SAME
+  part-receipt id twice, off the store's own registered-receipt
+  directory (never trusting the proposal's own claim) -- the SAME
+  double-commit-guard discipline `equipment-asset-already-registered-
+  violations` establishes, adapted to a NEW entity (a part receipt,
+  not an equipment asset)."
+  [{:keys [op subject]} st]
+  (when (= op :register-part-receipt)
+    (when (store/part-receipt-already-registered? st subject)
+      [{:rule :part-receipt-already-registered
+        :detail (str subject " は既に部品受入として登録済み")}])))
+
+(defn- part-receipt-handoff-incomplete-violations
+  "For `:register-part-receipt`, `:handoff` (the superproject
+  `:handoff` shared shape, ADR-2607177600/ADR-2800000500, reused
+  as-is) is entirely OPTIONAL -- a part receipt with NO `:handoff` at
+  all is NOT a violation (this actor accepts parts from any supplier,
+  tracked or not, the same 'optional field absent -> not checked'
+  discipline jsic-4721's own `:handoff`-optional inbound/outbound
+  shipment ops use, ADR-2607177600 Alternatives). But a `:handoff`
+  that IS present and missing any of its own three identity/
+  correlation fields (`registry/handoff-fields-present?`) is a
+  fabricated/incomplete reference -- HARD hold, the same anti-
+  fabrication discipline `equipment-asset-missing-fields-violations`
+  applies to the equipment-asset shape."
+  [{:keys [op]} proposal]
+  (when (= op :register-part-receipt)
+    (when-let [handoff (:handoff (:value proposal))]
+      (when-not (registry/handoff-fields-present? handoff)
+        [{:rule :part-receipt-handoff-incomplete
+          :detail "handoff参照が付与されているが必須フィールド(:handoff/id・:handoff/source-actor・:handoff/batch-id)が不足 -- 架空/不完全なhandoff参照は登録できない"}]))))
+
 (defn check
   "Censors a Pressure Equipment Advisor proposal against the governor
   rules. Returns {:ok? bool :violations [..] :confidence c :escalate?
@@ -350,7 +419,13 @@
   `equipment-asset-missing-fields-violations`/`equipment-asset-
   already-registered-violations` -- a NINTH and TENTH hard check added
   alongside `:register-equipment-asset` (see ns docstring Addendum 3),
-  purely additive: both only ever fire for that op."
+  purely additive: both only ever fire for that op. Also includes
+  `part-receipt-missing-fields-violations`/`part-receipt-already-
+  registered-violations`/`part-receipt-handoff-incomplete-violations`
+  -- an ELEVENTH, TWELFTH and THIRTEENTH hard check added alongside
+  `:register-part-receipt` (superproject part-supplier-linkage ADR,
+  ADR-2800000500), purely additive: all three only ever fire for that
+  op, and the third only when a `:handoff` map is actually present."
   [request _context proposal st]
   (let [hard (into []
                    (concat (spec-basis-violations request proposal)
@@ -362,7 +437,10 @@
                            (already-dispatched-violations request st)
                            (already-certified-violations request st)
                            (equipment-asset-missing-fields-violations request proposal)
-                           (equipment-asset-already-registered-violations request st)))
+                           (equipment-asset-already-registered-violations request st)
+                           (part-receipt-missing-fields-violations request proposal)
+                           (part-receipt-already-registered-violations request st)
+                           (part-receipt-handoff-incomplete-violations request proposal)))
         conf (:confidence proposal 0.0)
         low? (< conf confidence-floor)
         stakes? (boolean (high-stakes (:stake proposal)))

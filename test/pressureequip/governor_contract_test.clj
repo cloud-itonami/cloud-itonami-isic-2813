@@ -241,6 +241,78 @@
       (is (= 1 (count (store/all-equipment-assets db)))
           "still only the one earlier registration"))))
 
+;; ───────────── Additive: part-receipt / :handoff (superproject part-supplier-linkage ADR-2800000500) ─────────────
+;;
+;; isic-2813's RECEIVE side of the superproject `:handoff` shared
+;; shape (ADR-2607177600, isic-1075<->jsic-4721, reused as-is here),
+;; for BOM consumable/component parts -- DISTINCT from
+;; `:register-equipment-asset` above (fixed capital this factory
+;; OPERATES).
+
+(deftest register-part-receipt-with-missing-fields-is-held
+  (testing "a :register-part-receipt proposal missing a required :part-receipt/* field -> HOLD"
+    (let [[db actor] (fresh)
+          res (exec-op actor "t18"
+                    {:op :register-part-receipt :subject "pr-1"} operator)]
+      (is (= :hold (get-in res [:state :disposition])))
+      (is (some #{:part-receipt-missing-fields} (-> (store/ledger db) first :basis)))
+      (is (nil? (store/part-receipt db "pr-1"))))))
+
+(deftest register-part-receipt-without-handoff-clean-always-escalates-then-human-decides
+  (testing "a part receipt with NO :handoff at all is NOT held -- :handoff is entirely optional (this actor accepts parts from any supplier, tracked or not)"
+    (let [[db actor] (fresh)
+          request {:op :register-part-receipt :subject "pr-2"
+                   :part-receipt/part-id "part:condenser-coil" :part-receipt/qty 1}
+          r1 (exec-op actor "t19" request operator)]
+      (is (= :interrupted (:status r1)) "pauses for human approval even when governor-clean")
+      (let [r2 (approve! actor "t19")]
+        (is (= :commit (get-in r2 [:state :disposition])))
+        (is (= "part:condenser-coil" (:part-receipt/part-id (store/part-receipt db "pr-2"))))
+        (is (nil? (:handoff (store/part-receipt db "pr-2"))))))))
+
+(deftest register-part-receipt-with-complete-handoff-clean-always-escalates-then-links-the-supplier
+  (testing "a part receipt WITH a complete :handoff registers and carries the supplier linkage through to the SSoT -- register-part-receipt is never auto"
+    (let [[db actor] (fresh)
+          request {:op :register-part-receipt :subject "pr-3"
+                   :part-receipt/part-id "part:electric-motor" :part-receipt/qty 1
+                   :handoff {:handoff/id "ho-1"
+                             :handoff/source-actor "cloud-itonami-isic-2710"
+                             :handoff/batch-id "JPN-EEQ-000000"
+                             :handoff/product-type-id "part:electric-motor"
+                             :handoff/dispatched-at-iso "2026-07-18T00:00:00Z"}}
+          r1 (exec-op actor "t20" request operator)]
+      (is (= :interrupted (:status r1)) "pauses for human approval even when governor-clean")
+      (let [r2 (approve! actor "t20")
+            pr (store/part-receipt db "pr-3")]
+        (is (= :commit (get-in r2 [:state :disposition])))
+        (is (= "part:electric-motor" (:part-receipt/part-id pr)))
+        (is (= "cloud-itonami-isic-2710" (:handoff/source-actor (:handoff pr))))
+        (is (= "JPN-EEQ-000000" (:handoff/batch-id (:handoff pr))))))))
+
+(deftest register-part-receipt-with-incomplete-handoff-is-held
+  (testing "a :handoff that IS present but missing its own required identity fields -> HOLD, even though :handoff itself is optional"
+    (let [[db actor] (fresh)
+          request {:op :register-part-receipt :subject "pr-4"
+                   :part-receipt/part-id "part:electric-motor"
+                   :handoff {:handoff/source-actor "cloud-itonami-isic-2710"}}
+          res (exec-op actor "t21" request operator)]
+      (is (= :hold (get-in res [:state :disposition])))
+      (is (some #{:part-receipt-handoff-incomplete} (-> (store/ledger db) first :basis)))
+      (is (nil? (store/part-receipt db "pr-4"))))))
+
+(deftest register-part-receipt-double-registration-is-held
+  (testing "registering the same part-receipt id twice -> HOLD on the second attempt"
+    (let [[db actor] (fresh)
+          request {:op :register-part-receipt :subject "pr-5"
+                   :part-receipt/part-id "part:electric-motor" :part-receipt/qty 1}
+          _ (exec-op actor "t22a" request operator)
+          _ (approve! actor "t22a")
+          res (exec-op actor "t22" request operator)]
+      (is (= :hold (get-in res [:state :disposition])))
+      (is (some #{:part-receipt-already-registered} (-> (store/ledger db) last :basis)))
+      (is (= 1 (count (store/all-part-receipts db)))
+          "still only the one earlier registration"))))
+
 (deftest every-decision-leaves-one-ledger-fact
   (testing "write-only-through-ledger: N operations -> N ledger facts"
     (let [[db actor] (fresh)]

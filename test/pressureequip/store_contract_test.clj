@@ -111,6 +111,44 @@
         (is (false? (store/equipment-asset-already-registered? s "eqa-2"))
             "a different id is unaffected")))))
 
+(deftest part-receipt-store-parity
+  (testing "part-receipt registration -- isic-2813's RECEIVE side of the superproject part-supplier-linkage shape (ADR-2800000500), toward an upstream component-supplier actor e.g. cloud-itonami-isic-2710, OPTIONALLY carrying a :handoff (ADR-2607177600 shared shape, reused as-is)"
+    (doseq [[label s] (backends)]
+      (testing label
+        (is (nil? (store/part-receipt s "pr-1")))
+        (is (false? (store/part-receipt-already-registered? s "pr-1")))
+        (is (= [] (store/all-part-receipts s)))
+        (store/commit-record! s {:effect :part-receipt/register
+                                 :value {:part-receipt/id "pr-1"
+                                         :part-receipt/part-id "part:electric-motor"
+                                         :part-receipt/qty 1
+                                         :handoff {:handoff/id "ho-1"
+                                                   :handoff/source-actor "cloud-itonami-isic-2710"
+                                                   :handoff/batch-id "JPN-EEQ-000000"
+                                                   :handoff/product-type-id "part:electric-motor"
+                                                   :handoff/dispatched-at-iso "2026-07-18T00:00:00Z"}}})
+        (is (true? (store/part-receipt-already-registered? s "pr-1")))
+        (let [pr (store/part-receipt s "pr-1")]
+          (is (= "part:electric-motor" (:part-receipt/part-id pr)))
+          (is (= 1 (:part-receipt/qty pr)))
+          (is (= "cloud-itonami-isic-2710" (:handoff/source-actor (:handoff pr))))
+          (is (= "JPN-EEQ-000000" (:handoff/batch-id (:handoff pr)))))
+        (is (= 1 (count (store/all-part-receipts s))))
+        (is (false? (store/part-receipt-already-registered? s "pr-2"))
+            "a different id is unaffected")))))
+
+(deftest part-receipt-without-handoff-store-parity
+  (testing ":handoff is entirely OPTIONAL -- a part receipt with none of its fields round-trips exactly the same"
+    (doseq [[label s] (backends)]
+      (testing label
+        (store/commit-record! s {:effect :part-receipt/register
+                                 :value {:part-receipt/id "pr-3"
+                                         :part-receipt/part-id "part:condenser-coil"}})
+        (let [pr (store/part-receipt s "pr-3")]
+          (is (= "part:condenser-coil" (:part-receipt/part-id pr)))
+          (is (nil? (:handoff pr)))
+          (is (nil? (:part-receipt/qty pr))))))))
+
 (deftest unit-type-id-read-parity
   (doseq [[label s] (backends)]
     (testing label
