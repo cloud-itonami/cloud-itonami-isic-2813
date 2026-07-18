@@ -109,18 +109,57 @@
           (is (true? (:unit-dispatched? (store/unit db "unit-1"))))
           (is (= 1 (count (store/dispatch-history db))) "one draft dispatch record"))))))
 
+(def ^:private testlab-engagement-ref
+  "A complete, well-formed reference into the independent third-party
+  accredited testing laboratory actor `cloud-itonami-isic-7120` --
+  used by every test below that needs a CLEAN `:actuation/issue-
+  pressure-test-certificate` proposal (see `pressureequip.governor`
+  ns docstring Addendum 5 / `testlab-engagement-ref-missing-
+  violations`)."
+  {:testlab-engagement-ref/id "engagement-1"
+   :testlab-engagement-ref/source-actor "cloud-itonami-isic-7120"
+   :testlab-engagement-ref/certification-number "JPN-CERT-000000"})
+
 (deftest issue-pressure-test-certificate-always-escalates-then-human-decides
   (testing "a clean, fully-verified, resolved-defect unit still ALWAYS interrupts for human approval -- actuation/issue-pressure-test-certificate is never auto"
     (let [[db actor] (fresh)
           _ (verify! actor "t8pre" "unit-1")
           _ (screen! actor "t8pre2" "unit-1")
-          r1 (exec-op actor "t8" {:op :actuation/issue-pressure-test-certificate :subject "unit-1"} operator)]
+          r1 (exec-op actor "t8"
+                   {:op :actuation/issue-pressure-test-certificate :subject "unit-1"
+                    :certification/testlab-engagement-ref testlab-engagement-ref} operator)]
       (is (= :interrupted (:status r1)) "pauses for human approval even when governor-clean")
-      (testing "approve -> commit, certificate record drafted"
+      (testing "approve -> commit, certificate record drafted, testlab-engagement-ref persisted onto the unit"
         (let [r2 (approve! actor "t8")]
           (is (= :commit (get-in r2 [:state :disposition])))
           (is (true? (:pressure-test-certified? (store/unit db "unit-1"))))
-          (is (= 1 (count (store/evidence-history db))) "one draft certificate record"))))))
+          (is (= 1 (count (store/evidence-history db))) "one draft certificate record")
+          (is (= testlab-engagement-ref (:testlab-engagement-ref (store/unit db "unit-1")))
+              "the independent third-party engagement/certification reference is retained, not just checked-then-discarded"))))))
+
+(deftest issue-pressure-test-certificate-without-testlab-engagement-ref-is-held
+  (testing "a clean, fully-verified, resolved-defect unit WITHOUT a :certification/testlab-engagement-ref -> HOLD, never reaches a human -- self-issuance alone is not sufficient (superproject independent-verification-of-self-issued-certificates ADR)"
+    (let [[db actor] (fresh)
+          _ (verify! actor "t8bpre" "unit-1")
+          _ (screen! actor "t8bpre2" "unit-1")
+          res (exec-op actor "t8b" {:op :actuation/issue-pressure-test-certificate :subject "unit-1"} operator)]
+      (is (= :hold (get-in res [:state :disposition])))
+      (is (not= :interrupted (:status res)))
+      (is (some #{:testlab-engagement-ref-missing} (-> (store/ledger db) last :basis)))
+      (is (false? (:pressure-test-certified? (store/unit db "unit-1")))))))
+
+(deftest issue-pressure-test-certificate-with-incomplete-testlab-engagement-ref-is-held
+  (testing "a :certification/testlab-engagement-ref that IS present but missing its own required identity fields -> HOLD -- a fabricated/incomplete reference is refused exactly like a missing one"
+    (let [[db actor] (fresh)
+          _ (verify! actor "t8cpre" "unit-1")
+          _ (screen! actor "t8cpre2" "unit-1")
+          res (exec-op actor "t8c"
+                    {:op :actuation/issue-pressure-test-certificate :subject "unit-1"
+                     :certification/testlab-engagement-ref {:testlab-engagement-ref/source-actor "cloud-itonami-isic-7120"}}
+                    operator)]
+      (is (= :hold (get-in res [:state :disposition])))
+      (is (some #{:testlab-engagement-ref-missing} (-> (store/ledger db) last :basis)))
+      (is (false? (:pressure-test-certified? (store/unit db "unit-1")))))))
 
 (deftest dispatch-unit-double-dispatch-is-held
   (testing "dispatching the same unit's action twice -> HOLD on the second attempt"
@@ -138,9 +177,13 @@
     (let [[db actor] (fresh)
           _ (verify! actor "t10pre" "unit-1")
           _ (screen! actor "t10pre2" "unit-1")
-          _ (exec-op actor "t10a" {:op :actuation/issue-pressure-test-certificate :subject "unit-1"} operator)
+          _ (exec-op actor "t10a"
+                   {:op :actuation/issue-pressure-test-certificate :subject "unit-1"
+                    :certification/testlab-engagement-ref testlab-engagement-ref} operator)
           _ (approve! actor "t10a")
-          res (exec-op actor "t10" {:op :actuation/issue-pressure-test-certificate :subject "unit-1"} operator)]
+          res (exec-op actor "t10"
+                    {:op :actuation/issue-pressure-test-certificate :subject "unit-1"
+                     :certification/testlab-engagement-ref testlab-engagement-ref} operator)]
       (is (= :hold (get-in res [:state :disposition])))
       (is (some #{:already-certified} (-> (store/ledger db) last :basis)))
       (is (= 1 (count (store/evidence-history db))) "still only the one earlier certificate issuance"))))

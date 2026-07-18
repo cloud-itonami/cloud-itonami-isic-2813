@@ -70,7 +70,20 @@
         (is (= 1 (count (store/evidence-history s))))
         (is (= 1 (store/next-evidence-sequence s "JPN")))
         (is (true? (store/unit-already-certified? s "unit-1")))
-        (is (false? (store/unit-already-certified? s "unit-2"))))
+        (is (false? (store/unit-already-certified? s "unit-2")))
+        (is (nil? (:testlab-engagement-ref (store/unit s "unit-1")))
+            "no ref supplied at the store layer -> not fabricated (the governor, not the store, enforces mandatory presence)"))
+      (testing "pressure-test certificate WITH a :certification/testlab-engagement-ref persists the reference onto the unit"
+        (store/commit-record! s {:effect :unit/mark-certified :path ["unit-2"]
+                                 :value {:certification/testlab-engagement-ref
+                                         {:testlab-engagement-ref/id "engagement-1"
+                                          :testlab-engagement-ref/source-actor "cloud-itonami-isic-7120"
+                                          :testlab-engagement-ref/certification-number "ATL-CERT-000000"}}})
+        (is (true? (:pressure-test-certified? (store/unit s "unit-2"))))
+        (is (= "cloud-itonami-isic-7120"
+               (:testlab-engagement-ref/source-actor (:testlab-engagement-ref (store/unit s "unit-2")))))
+        (is (= "ATL-CERT-000000"
+               (:testlab-engagement-ref/certification-number (:testlab-engagement-ref (store/unit s "unit-2"))))))
       (testing "maintenance notice drafts a record, advances the sequence, and allows more than one per unit"
         (store/commit-record! s {:effect :maintenance-notice/issue :path ["unit-1"]
                                  :value {:unit-id "unit-1" :dispatch-ref "JPN-PEQ-000000"}})

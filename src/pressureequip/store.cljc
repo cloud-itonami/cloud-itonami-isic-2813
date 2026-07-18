@@ -46,7 +46,20 @@
   naming which upstream component-supplier actor (e.g. cloud-itonami-
   isic-2710) this receipt traces back to. See `pressureequip.
   pressureequipadvisor/propose-register-part-receipt` and
-  `pressureequip.governor` ns docstring Addendum 4."
+  `pressureequip.governor` ns docstring Addendum 4.
+
+  ── Additive: testlab-engagement-ref (superproject independent-
+  verification-of-self-issued-certificates ADR) ──
+
+  A unit whose pressure-test certificate has been issued now also
+  carries `:testlab-engagement-ref` -- the MANDATORY `:certification/
+  testlab-engagement-ref` the proposal supplied, re-verified complete
+  by `pressureequip.governor/testlab-engagement-ref-missing-
+  violations` before commit is ever reached, and persisted onto the
+  unit record here so the independent third-party accredited testing
+  laboratory actor (`cloud-itonami-isic-7120`) engagement/certification
+  that justified this issuance stays queryable, not just checked-then-
+  discarded. See `pressureequip.governor` ns docstring Addendum 5."
   (:require #?(:clj  [clojure.edn :as edn]
                :cljs [cljs.reader :as edn])
             [pressureequip.registry :as registry]
@@ -129,14 +142,23 @@
   "Backend-agnostic `:unit/mark-certified` -- looks up the
   unit via the protocol and drafts the pressure-test-certificate
   record, and returns {:result .. :unit-patch ..} for the caller
-  to persist."
-  [s unit-id]
+  to persist. `ref` (when present -- the proposal's own
+  `:certification/testlab-engagement-ref`, ALREADY re-verified
+  complete by `pressureequip.governor/testlab-engagement-ref-missing-
+  violations` before commit is ever reached) is folded into the
+  unit-patch so the independent third-party engagement/certification
+  reference that justified this issuance stays on the unit's own
+  record, not just checked-then-discarded -- the same 'persist a
+  nested shared-shape reference onto the entity' discipline
+  `part-receipt->tx`'s own `:handoff` persistence establishes."
+  [s unit-id & [ref]]
   (let [a (unit s unit-id)
         seq-n (next-evidence-sequence s (:jurisdiction a))
         result (registry/register-pressure-test-certificate unit-id (:jurisdiction a) seq-n)]
     {:result result
-     :unit-patch {:pressure-test-certified? true
-                      :evidence-number (get result "evidence_number")}}))
+     :unit-patch (cond-> {:pressure-test-certified? true
+                          :evidence-number (get result "evidence_number")}
+                   ref (assoc :testlab-engagement-ref ref))}))
 
 (defn- issue-maintenance-notice!
   "Backend-agnostic `:maintenance-notice/issue` -- looks up the unit
@@ -198,7 +220,8 @@
 
       :unit/mark-certified
       (let [unit-id (first path)
-            {:keys [result unit-patch]} (issue-pressure-test-certificate! s unit-id)
+            ref (:certification/testlab-engagement-ref value)
+            {:keys [result unit-patch]} (issue-pressure-test-certificate! s unit-id ref)
             jurisdiction (:jurisdiction (unit s unit-id))]
         (swap! a (fn [state]
                    (-> state
@@ -264,7 +287,8 @@
 (defn- unit->tx [{:keys [id unit-name test-pressure-actual test-pressure-min test-pressure-max
                           pressure-test-defect-unresolved?
                           unit-dispatched? pressure-test-certified?
-                          jurisdiction status dispatch-number evidence-number unit-type-id]}]
+                          jurisdiction status dispatch-number evidence-number unit-type-id
+                          testlab-engagement-ref]}]
   (cond-> {:unit/id id}
     unit-name                                   (assoc :unit/unit-name unit-name)
     test-pressure-actual                        (assoc :unit/test-pressure-actual test-pressure-actual)
@@ -277,13 +301,15 @@
     status                                       (assoc :unit/status status)
     dispatch-number                              (assoc :unit/dispatch-number dispatch-number)
     evidence-number                              (assoc :unit/evidence-number evidence-number)
-    unit-type-id                                 (assoc :unit/unit-type-id unit-type-id)))
+    unit-type-id                                 (assoc :unit/unit-type-id unit-type-id)
+    testlab-engagement-ref                       (assoc :unit/testlab-engagement-ref (enc testlab-engagement-ref))))
 
 (def ^:private unit-pull
   [:unit/id :unit/unit-name :unit/test-pressure-actual
    :unit/test-pressure-min :unit/test-pressure-max
    :unit/pressure-test-defect-unresolved? :unit/unit-dispatched? :unit/pressure-test-certified?
-   :unit/jurisdiction :unit/status :unit/dispatch-number :unit/evidence-number :unit/unit-type-id])
+   :unit/jurisdiction :unit/status :unit/dispatch-number :unit/evidence-number :unit/unit-type-id
+   :unit/testlab-engagement-ref])
 
 (defn- pull->unit [m]
   (when (:unit/id m)
@@ -296,7 +322,8 @@
      :pressure-test-certified? (boolean (:unit/pressure-test-certified? m))
      :jurisdiction (:unit/jurisdiction m) :status (:unit/status m)
      :dispatch-number (:unit/dispatch-number m) :evidence-number (:unit/evidence-number m)
-     :unit-type-id (:unit/unit-type-id m)}))
+     :unit-type-id (:unit/unit-type-id m)
+     :testlab-engagement-ref (dec* (:unit/testlab-engagement-ref m))}))
 
 (def ^:private equipment-asset-pull
   "Pull attrs for a registered `:equipment-asset` entity -- the same
@@ -421,7 +448,8 @@
 
       :unit/mark-certified
       (let [unit-id (first path)
-            {:keys [result unit-patch]} (issue-pressure-test-certificate! s unit-id)
+            ref (:certification/testlab-engagement-ref value)
+            {:keys [result unit-patch]} (issue-pressure-test-certificate! s unit-id ref)
             jurisdiction (:jurisdiction (unit s unit-id))
             next-n (inc (next-evidence-sequence s jurisdiction))]
         (d/transact! conn
