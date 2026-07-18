@@ -173,3 +173,44 @@
   (every? some? ((juxt :equipment-asset/id :equipment-asset/unit-type-id
                        :equipment-asset/source-actor :equipment-asset/dispatch-ref)
                  equipment-asset)))
+
+;; ----------------------------- part-receipt / :handoff (additive) -----------------------------
+;;
+;; Part-receipt traceability -- DISTINCT from `equipment-asset-fields-
+;; present?` above: an equipment asset is FIXED CAPITAL this factory
+;; OPERATES (a machine tool/welding cell, received once and installed
+;; at a `:station/cell`); a part receipt is a CONSUMABLE/COMPONENT
+;; this factory CONSUMES into its own BOM (resources/pressureequip/
+;; compressor-unit-bom.edn), received repeatedly, batch by batch. The
+;; superproject `:handoff` shared shape (ADR-2607177600, isic-1075<->
+;; jsic-4721) is REUSED AS-IS here -- see superproject ADR-2800000500
+;; -- never a new shape. Unlike `equipment-asset-fields-present?`,
+;; `:handoff` itself is entirely OPTIONAL on a part receipt: this
+;; actor accepts parts from any supplier, tracked or not.
+
+(defn part-receipt-fields-present?
+  "True when the two REQUIRED `:part-receipt/*` fields
+  (`:part-receipt/id`/`:part-receipt/part-id`) are present -- this
+  actor never registers a receipt for an unnamed part. `:handoff` is
+  NOT in this required set (see `handoff-fields-present?` below,
+  checked separately and only when the key itself is present)."
+  [part-receipt]
+  (every? some? ((juxt :part-receipt/id :part-receipt/part-id) part-receipt)))
+
+(defn handoff-fields-present?
+  "True when `handoff` carries the three identity/correlation
+  `:handoff/*` fields (`:handoff/id`/`:handoff/source-actor`/
+  `:handoff/batch-id`) the superproject `:handoff` shared shape
+  requires for traceability (ADR-2607177600) -- called ONLY when a
+  `:handoff` map is actually present on a part receipt (see
+  `pressureequip.governor/part-receipt-handoff-incomplete-
+  violations`); a part receipt with NO `:handoff` at all never reaches
+  this predicate. Domain-specific optional fields on the shared shape
+  (`:handoff/product-type-id`/`:handoff/quantity-kg`/`:handoff/cold-
+  chain-temp-min-c`/`:handoff/cold-chain-temp-max-c`/`:handoff/
+  dispatched-at-iso`) are NOT required here -- this actor's parts
+  (electric motors, refrigerant charge) are not cold-chain goods, the
+  same 'optional field absent -> not checked' discipline
+  cloud-itonami-jsic-4721's own handoff-compatibility check uses."
+  [handoff]
+  (every? some? ((juxt :handoff/id :handoff/source-actor :handoff/batch-id) handoff)))

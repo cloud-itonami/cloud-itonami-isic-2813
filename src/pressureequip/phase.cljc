@@ -49,12 +49,22 @@
   never auto-commits it in practice: phase 3's `:auto` set has only
   ever had the one `:unit/intake` member, so this op always escalates
   once the governor clears it, exactly like `:design-rules/verify`/
-  `:pressure-test/screen` before it.")
+  `:pressure-test/screen` before it.
+
+  `:register-part-receipt` (superproject part-supplier-linkage ADR,
+  cloud-itonami-isic-2813<->cloud-itonami-isic-2710, ADR-2800000500)
+  joins `write-ops` the SAME way `:register-equipment-asset` does --
+  bookkeeping registration of a BOM consumable/component part receipt
+  (never fixed capital, see `pressureequip.governor` ns docstring
+  Addendum 4), NOT in `high-stakes`, and never auto-eligible in
+  practice since phase 3's `:auto` set is UNCHANGED by this
+  addition.")
 
 (def read-ops  #{})
 (def write-ops #{:unit/intake :design-rules/verify :pressure-test/screen
                  :actuation/dispatch-unit :actuation/issue-pressure-test-certificate
-                 :issue-maintenance-notice :register-equipment-asset})
+                 :issue-maintenance-notice :register-equipment-asset
+                 :register-part-receipt})
 
 ;; NOTE the invariant: `:actuation/dispatch-unit`/`:actuation/
 ;; issue-pressure-test-certificate`/`:issue-maintenance-notice` are

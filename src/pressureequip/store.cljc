@@ -33,7 +33,20 @@
   whom' is always a query over an immutable log -- the audit trail a
   community trusting a pressure-equipment manufacturer needs, and the
   evidence a manufacturer needs if a dispatch or pressure-test-
-  certificate decision is later disputed."
+  certificate decision is later disputed.
+
+  ── Additive: part-receipt / :handoff (superproject part-supplier-
+  linkage ADR, ADR-2800000500) ──
+
+  A registered `part-receipt` (superproject shared shape, DISTINCT
+  from `equipment-asset` above -- a consumable/component this factory
+  CONSUMES into its own BOM, not fixed capital it operates) may
+  optionally carry a `:handoff` (the superproject `:handoff` shared
+  shape, ADR-2607177600, isic-1075<->jsic-4721, reused as-is here) --
+  naming which upstream component-supplier actor (e.g. cloud-itonami-
+  isic-2710) this receipt traces back to. See `pressureequip.
+  pressureequipadvisor/propose-register-part-receipt` and
+  `pressureequip.governor` ns docstring Addendum 4."
   (:require #?(:clj  [clojure.edn :as edn]
                :cljs [cljs.reader :as edn])
             [pressureequip.registry :as registry]
@@ -56,6 +69,9 @@
   (equipment-asset [s id] "a registered `:equipment-asset` (superproject equipment-asset-linkage shared shape) by id, or nil -- isic-2813's RECEIVE side, toward an upstream manufacturer actor e.g. cloud-itonami-isic-2822")
   (all-equipment-assets [s] "every registered equipment asset")
   (equipment-asset-already-registered? [s id] "has an equipment asset with this id already been registered?")
+  (part-receipt [s id] "a registered part-receipt (superproject part-supplier-linkage shared shape, optionally carrying a `:handoff`) by id, or nil -- isic-2813's RECEIVE side, toward an upstream component-supplier actor e.g. cloud-itonami-isic-2710")
+  (all-part-receipts [s] "every registered part receipt")
+  (part-receipt-already-registered? [s id] "has a part receipt with this id already been registered?")
   (commit-record! [s record] "apply a committed op's record to the SSoT")
   (append-ledger! [s fact]   "append one immutable decision fact")
   (with-units [s units] "replace/seed the unit directory (map id->unit)"))
@@ -155,6 +171,9 @@
   (equipment-asset [_ id] (get-in @a [:equipment-assets id]))
   (all-equipment-assets [_] (vec (vals (:equipment-assets @a))))
   (equipment-asset-already-registered? [_ id] (contains? (:equipment-assets @a) id))
+  (part-receipt [_ id] (get-in @a [:part-receipts id]))
+  (all-part-receipts [_] (vec (vals (:part-receipts @a))))
+  (part-receipt-already-registered? [_ id] (contains? (:part-receipts @a) id))
   (commit-record! [s {:keys [effect path value payload]}]
     (case effect
       :unit/upsert
@@ -200,6 +219,9 @@
 
       :equipment-asset/register
       (swap! a assoc-in [:equipment-assets (:equipment-asset/id value)] value)
+
+      :part-receipt/register
+      (swap! a assoc-in [:part-receipts (:part-receipt/id value)] value)
       nil)
     s)
   (append-ledger! [_ fact] (swap! a update :ledger conj fact) fact)
@@ -213,7 +235,7 @@
                            :verifications {} :pressure-screens {} :ledger [] :dispatch-sequences {}
                            :dispatches [] :evidence-sequences {} :evidences []
                            :maintenance-notice-sequences {} :maintenance-notices []
-                           :equipment-assets {}))))
+                           :equipment-assets {} :part-receipts {}))))
 
 ;; ----------------------------- DatomicStore (langchain.db) -----------------------------
 
@@ -233,7 +255,8 @@
    :dispatch-sequence/jurisdiction     {:db/unique :db.unique/identity}
    :evidence-sequence/jurisdiction     {:db/unique :db.unique/identity}
    :maintenance-notice-sequence/jurisdiction {:db/unique :db.unique/identity}
-   :equipment-asset/id                 {:db/unique :db.unique/identity}})
+   :equipment-asset/id                 {:db/unique :db.unique/identity}
+   :part-receipt/id                    {:db/unique :db.unique/identity}})
 
 (defn- enc [v] (pr-str v))
 (defn- dec* [s] (when s (edn/read-string s)))
@@ -285,6 +308,29 @@
 
 (defn- pull->equipment-asset [m]
   (when (:equipment-asset/id m) m))
+
+;; ---- additive: part-receipt (superproject part-supplier-linkage ADR-2800000500) ----
+
+(defn- part-receipt->tx
+  "Unlike `equipment-asset`, a part receipt's `:handoff` is a NESTED
+  map (the superproject `:handoff` shared shape, ADR-2607177600) --
+  not a top-level scalar, so it is `enc`oded as an EDN string, the
+  same convention this ns's own `verification/pressure-screen`
+  payloads already use, before transacting. `nil`-valued keys (e.g. an
+  omitted `:part-receipt/qty`) are dropped -- `langchain.db` transacts
+  presence, not `nil` placeholders."
+  [{:keys [handoff] :as part-receipt}]
+  (let [scalars (into {} (remove (comp nil? val) (dissoc part-receipt :handoff)))]
+    (cond-> scalars
+      handoff (assoc :part-receipt/handoff (enc handoff)))))
+
+(def ^:private part-receipt-pull
+  [:part-receipt/id :part-receipt/part-id :part-receipt/qty :part-receipt/handoff])
+
+(defn- pull->part-receipt [m]
+  (when (:part-receipt/id m)
+    (cond-> (dissoc m :part-receipt/handoff)
+      (:part-receipt/handoff m) (assoc :handoff (dec* (:part-receipt/handoff m))))))
 
 (defrecord DatomicStore [conn]
   Store
@@ -344,6 +390,13 @@
          (map #(pull->equipment-asset (d/pull (d/db conn) equipment-asset-pull [:equipment-asset/id %])))))
   (equipment-asset-already-registered? [s id]
     (boolean (equipment-asset s id)))
+  (part-receipt [_ id]
+    (pull->part-receipt (d/pull (d/db conn) part-receipt-pull [:part-receipt/id id])))
+  (all-part-receipts [_]
+    (->> (d/q '[:find [?id ...] :where [?e :part-receipt/id ?id]] (d/db conn))
+         (map #(pull->part-receipt (d/pull (d/db conn) part-receipt-pull [:part-receipt/id %])))))
+  (part-receipt-already-registered? [s id]
+    (boolean (part-receipt s id)))
   (commit-record! [s {:keys [effect path value payload]}]
     (case effect
       :unit/upsert
@@ -389,6 +442,9 @@
 
       :equipment-asset/register
       (d/transact! conn [value])
+
+      :part-receipt/register
+      (d/transact! conn [(part-receipt->tx value)])
       nil)
     s)
   (append-ledger! [s fact]

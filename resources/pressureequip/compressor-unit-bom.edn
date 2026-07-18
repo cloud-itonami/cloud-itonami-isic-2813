@@ -35,10 +35,44 @@
 ;; compressor-unit-prod-order.edn's new `st:am-print` station comment
 ;; for the equipment-asset link to cloud-itonami-isic-2822's
 ;; `:unit/metal-additive-manufacturing-system`.
+;;
+;; Part-supplier linkage (superproject ADR-2800000500, additive/
+;; optional, data-level only -- does NOT affect
+;; `pressureequip.assembly/step-parts-consistent?`/`bom-parts-all-
+;; used?`, which only ever inspect `:part/id`/`:station/parts`
+;; strings): `part:electric-motor` names its real-world supplier actor
+;; via the OPTIONAL `:part/supplier-actor` key, pointing at
+;; cloud-itonami-isic-2710 ("Manufacture of electric motors,
+;; generators, transformers and electricity distribution and control
+;; apparatus") -- the receive-side counterpart is
+;; `pressureequip.governor`'s `:register-part-receipt` op, which can
+;; optionally carry a `:handoff` (ADR-2607177600 shared shape, reused
+;; as-is) tracing a specific received batch back to a specific
+;; isic-2710 shipment. `part:refrigerant-charge` (R-448A, a blended
+;; hydrofluorocarbon/hydrofluoroolefin refrigerant) is DELIBERATELY
+;; left WITHOUT a `:part/supplier-actor`: R-448A is a basic fluorinated
+;; organic chemical, which the real ISIC classification places under
+;; 2011 ("Manufacture of basic chemicals" -- industrial gases/
+;; halogenated organic chemicals), NOT 2029 ("Manufacture of other
+;; chemical products n.e.c.", this fleet's registered chemical actor
+;; whose own domain/product-type model is adhesive/glue manufacturing
+;; specifically -- purity%/viscosity(cP) checks that do not generalize
+;; to a gas blend). cloud-itonami-isic-2011 IS registered in this
+;; fleet and correctly classified, but its implemented op surface
+;; (`:proposal/intake-feedstock`/`:actuation/schedule-reaction`/
+;; `:proposal/coordinate-byproduct-disposal`/`:actuation/log-
+;; emissions-report`) has NO outbound finished-product shipment op at
+;; all to attach an optional `:handoff` onto -- adding one would mean
+;; inventing a new actuation end-to-end (governor check, phase gate,
+;; tests), beyond this task's "attach handoff to an existing dispatch-
+;; like op" scope. See superproject ADR-2800000500 Alternatives for
+;; the full reasoning; this is a deliberate scope decision, not an
+;; oversight.
 {:bom/of :unit/industrial-refrigeration-compressor
  :bom/parts
  [{:part/id "part:compressor-body" :part/name "Compressor body (screw/reciprocating block)" :part/qty 1}
-  {:part/id "part:electric-motor" :part/name "Electric drive motor" :part/qty 1}
+  {:part/id "part:electric-motor" :part/name "Electric drive motor" :part/qty 1
+   :part/supplier-actor "cloud-itonami-isic-2710"}
   {:part/id "part:condenser-coil" :part/name "Condenser coil" :part/qty 1}
   {:part/id "part:am-fan-housing" :part/name "Additively-manufactured condenser fan housing/impeller (integrated single-piece, metal powder-bed-fusion 3D print)" :part/qty 2}
   {:part/id "part:control-panel" :part/name "Control panel (NEMA/IP-rated enclosure)" :part/qty 1}

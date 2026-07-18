@@ -223,6 +223,49 @@
      :stake      nil
      :confidence (if present? 0.9 0.3)}))
 
+(defn- propose-register-part-receipt
+  "Draft a REGISTER-PART-RECEIPT action -- registering the receipt of
+  a BOM consumable/component part (resources/pressureequip/
+  compressor-unit-bom.edn `:bom/parts`, e.g. `part:electric-motor`)
+  FROM an upstream component-supplier actor (e.g. cloud-itonami-
+  isic-2710, an electric-motor/generator/transformer manufacturer).
+  DISTINCT from `propose-register-equipment-asset` above: an
+  equipment asset is FIXED CAPITAL this factory OPERATES (a machine
+  tool/welding cell); a part receipt is a CONSUMABLE/COMPONENT this
+  factory CONSUMES into its own BOM. The superproject `:handoff`
+  shared shape (`{:handoff/id :handoff/source-actor :handoff/batch-id
+  :handoff/product-type-id :handoff/quantity-kg :handoff/dispatched-
+  at-iso}`, ADR-2607177600) is REUSED AS-IS, never a new shape -- see
+  superproject ADR-2800000500. `:handoff` is entirely OPTIONAL on a
+  part receipt: this actor accepts parts from any supplier, tracked
+  or not; the advisor only echoes/normalizes the request's own
+  `:part-receipt/*`/`:handoff` fields, it does not invent a
+  source-actor or batch-id. `pressureequip.governor` INDEPENDENTLY
+  re-verifies required-field presence (both the receipt's own and,
+  when present, the handoff's own) and the double-registration guard
+  before anything commits."
+  [_db {:keys [subject] :as request}]
+  (let [part-id (:part-receipt/part-id request)
+        qty (:part-receipt/qty request)
+        handoff (:handoff request)
+        pr (cond-> {:part-receipt/id subject :part-receipt/part-id part-id}
+             (some? qty) (assoc :part-receipt/qty qty)
+             handoff (assoc :handoff handoff))
+        required-present? (every? some? [subject part-id])]
+    {:summary    (str subject " 部品受入登録提案 (part=" part-id ")"
+                      (when-let [src (:handoff/source-actor handoff)] (str " supplier=" src)))
+     :rationale  (if required-present?
+                   (str "部品 " part-id " の受入登録"
+                        (if handoff
+                          (str "、handoff参照あり(batch-id=" (:handoff/batch-id handoff) ")")
+                          "、handoff参照なし(トレーサビリティ情報なしでの受入)"))
+                   "必須フィールド(:part-receipt/id・:part-receipt/part-id)が不足")
+     :cites      (if required-present? (cond-> [subject part-id] (:handoff/source-actor handoff) (conj (:handoff/source-actor handoff))) [])
+     :effect     :part-receipt/register
+     :value      pr
+     :stake      nil
+     :confidence (if required-present? 0.9 0.3)}))
+
 (defn infer
   "Route a request to the right proposal generator.
   request: {:op kw :subject id ...op-specific...}"
@@ -235,6 +278,7 @@
     :actuation/issue-pressure-test-certificate     (propose-pressure-test-certificate db request)
     :issue-maintenance-notice                     (propose-maintenance-notice db request)
     :register-equipment-asset                     (propose-register-equipment-asset db request)
+    :register-part-receipt                        (propose-register-part-receipt db request)
     {:summary "未対応の操作" :rationale (str op) :cites []
      :effect :noop :stake nil :confidence 0.0}))
 
@@ -255,7 +299,7 @@
        ":cites(使った事実キーのベクタ) "
        ":effect(:unit/upsert|:verification/set|:pressure-test-screen/set|"
        ":unit/mark-dispatched|:unit/mark-certified|:maintenance-notice/issue|"
-       ":equipment-asset/register) "
+       ":equipment-asset/register|:part-receipt/register) "
        ":stake(:actuation/dispatch-unit か :actuation/issue-pressure-test-certificate か "
        ":issue-maintenance-notice か nil) :confidence(0..1)。\n"
        "重要: 登録されていない法域の要件を絶対に創作してはいけません。"
@@ -269,6 +313,7 @@
     :actuation/issue-pressure-test-certificate     {:unit (store/unit st subject)}
     :issue-maintenance-notice                     {:unit (store/unit st subject)}
     :register-equipment-asset                     {:equipment-asset (store/equipment-asset st subject)}
+    :register-part-receipt                        {:part-receipt (store/part-receipt st subject)}
     {:unit (store/unit st subject)}))
 
 (defn- parse-proposal

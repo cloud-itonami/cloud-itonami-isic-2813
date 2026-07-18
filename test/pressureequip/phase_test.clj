@@ -35,6 +35,12 @@
       (is (not (contains? auto :register-equipment-asset))
           (str "phase " n " must not auto-commit :register-equipment-asset")))))
 
+(deftest register-part-receipt-never-auto-at-any-phase
+  (testing "isic-2813's RECEIVE side of the superproject part-supplier-linkage shape (ADR-2800000500) is never auto-eligible either, even though it is not in governor/high-stakes -- phase 3's :auto set has only ever had :unit/intake"
+    (doseq [[n {:keys [auto]}] phase/phases]
+      (is (not (contains? auto :register-part-receipt))
+          (str "phase " n " must not auto-commit :register-part-receipt")))))
+
 (deftest phase-0-is-fully-read-only
   (is (empty? (:writes (get phase/phases 0)))))
 
@@ -49,7 +55,14 @@
   (is (= :escalate (:disposition (phase/gate 3 {:op :actuation/dispatch-unit} :commit))))
   (is (= :escalate (:disposition (phase/gate 3 {:op :actuation/issue-pressure-test-certificate} :commit))))
   (is (= :escalate (:disposition (phase/gate 3 {:op :issue-maintenance-notice} :commit))))
-  (is (= :escalate (:disposition (phase/gate 3 {:op :register-equipment-asset} :commit)))))
+  (is (= :escalate (:disposition (phase/gate 3 {:op :register-equipment-asset} :commit))))
+  (is (= :escalate (:disposition (phase/gate 3 {:op :register-part-receipt} :commit)))))
 
 (deftest gate-holds-a-write-disabled-in-this-phase
   (is (= :hold (:disposition (phase/gate 0 {:op :unit/intake} :commit)))))
+
+(deftest register-part-receipt-disabled-before-phase-3
+  (testing "the SAME phase-membership posture as :register-equipment-asset -- only :write-ops-eligible from phase 3"
+    (is (not (contains? (:writes (get phase/phases 1)) :register-part-receipt)))
+    (is (not (contains? (:writes (get phase/phases 2)) :register-part-receipt)))
+    (is (contains? (:writes (get phase/phases 3)) :register-part-receipt))))
