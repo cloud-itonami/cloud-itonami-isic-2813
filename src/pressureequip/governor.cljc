@@ -128,7 +128,39 @@
   dispatch-ref reference. `:issue-maintenance-notice` also joins
   `high-stakes` (below): a maintenance/recall notice about equipment
   already in the field always escalates to a human, exactly like the
-  two actuation ops."
+  two actuation ops.
+
+  Addendum 3 (superproject equipment-asset-linkage ADR,
+  cloud-itonami-isic-2822<->cloud-itonami-isic-2813): a NINTH and
+  TENTH HARD check, `equipment-asset-missing-fields-violations`/
+  `equipment-asset-already-registered-violations`, were added
+  alongside a new `:register-equipment-asset` op -- isic-2813's own
+  RECEIVE side of the SAME `:equipment-asset` shared shape it is
+  already the ISSUER side of toward cloud-itonami-jsic-4721 (Addendum
+  2 above). This actor plays BOTH roles in the fleet: it manufactures
+  pressure equipment (issuing maintenance notices about units it
+  dispatched) AND it operates its own factory floor, which receives
+  machine tools/welding cells manufactured by an upstream actor (e.g.
+  cloud-itonami-isic-2822) and must register them as equipment assets
+  tied to one of THIS factory's own `:station/cell`s
+  (resources/pressureequip/compressor-unit-prod-order.edn). Independently
+  mirrors cloud-itonami-jsic-4721's own `:register-equipment-asset`
+  governor rule (no shared code, same required-field set and the same
+  double-registration-guard discipline `already-dispatched-
+  violations`/`already-certified-violations` already establish in this
+  ns): (1) missing-fields -- a proposal missing any of `:equipment-
+  asset/id`/`:equipment-asset/unit-type-id`/`:equipment-asset/source-
+  actor`/`:equipment-asset/dispatch-ref` is refused, this actor never
+  registers a partial/fabricated equipment-asset record; (2) already-
+  registered -- the same id may never be registered twice. Deliberately
+  NOT added to `high-stakes` (unlike the two actuation ops and
+  `:issue-maintenance-notice`) -- the real safety-critical act (machine-
+  tool dispatch) already happened on the UPSTREAM actor's own actuation-
+  gated side; this op is bookkeeping registration of an asset already
+  dispatched, mirroring jsic-4721's own non-high-stakes treatment of
+  the identical op. It still never auto-commits in practice, because
+  `pressureequip.phase`'s phase-3 `:auto` set has only ever had the one
+  `:unit/intake` member."
   (:require [pressureequip.facts :as facts]
             [pressureequip.registry :as registry]
             [pressureequip.store :as store]))
@@ -275,6 +307,32 @@
       [{:rule :already-certified
         :detail (str subject " は既に耐圧証明書発行済み")}])))
 
+(defn- equipment-asset-missing-fields-violations
+  "For `:register-equipment-asset`, the proposal's `:value` (the
+  superproject `:equipment-asset` shared shape) must carry all four
+  required fields (`registry/equipment-asset-fields-present?`) --
+  this actor never registers a partial/fabricated equipment-asset
+  record, the SAME anti-fabrication discipline `spec-basis-violations`
+  applies to a jurisdiction citation."
+  [{:keys [op]} proposal]
+  (when (= op :register-equipment-asset)
+    (when-not (registry/equipment-asset-fields-present? (:value proposal))
+      [{:rule :equipment-asset-missing-fields
+        :detail "設備資産登録提案に必須フィールド(:equipment-asset/id・:equipment-asset/unit-type-id・:equipment-asset/source-actor・:equipment-asset/dispatch-ref)が不足 -- 未確認/架空の設備資産は登録できない"}])))
+
+(defn- equipment-asset-already-registered-violations
+  "For `:register-equipment-asset`, refuses to register the SAME
+  equipment-asset id twice, off the store's own registered-asset
+  directory (never trusting the proposal's own claim) -- the same
+  double-commit-guard discipline `already-dispatched-violations`/
+  `already-certified-violations` establish, adapted to a NEW entity
+  (an equipment asset, not a unit)."
+  [{:keys [op subject]} st]
+  (when (= op :register-equipment-asset)
+    (when (store/equipment-asset-already-registered? st subject)
+      [{:rule :equipment-asset-already-registered
+        :detail (str subject " は既に設備資産として登録済み")}])))
+
 (defn check
   "Censors a Pressure Equipment Advisor proposal against the governor
   rules. Returns {:ok? bool :violations [..] :confidence c :escalate?
@@ -288,7 +346,11 @@
   this store has no `:unit-type-id` at all). Also includes
   `dispatch-ref-unverified-violations` -- an EIGHTH hard check added
   alongside `:issue-maintenance-notice` (see ns docstring Addendum 2),
-  purely additive: it only ever fires for that op."
+  purely additive: it only ever fires for that op. Also includes
+  `equipment-asset-missing-fields-violations`/`equipment-asset-
+  already-registered-violations` -- a NINTH and TENTH hard check added
+  alongside `:register-equipment-asset` (see ns docstring Addendum 3),
+  purely additive: both only ever fire for that op."
   [request _context proposal st]
   (let [hard (into []
                    (concat (spec-basis-violations request proposal)
@@ -298,7 +360,9 @@
                            (unit-type-unregistered-violations request st)
                            (dispatch-ref-unverified-violations request proposal st)
                            (already-dispatched-violations request st)
-                           (already-certified-violations request st)))
+                           (already-certified-violations request st)
+                           (equipment-asset-missing-fields-violations request proposal)
+                           (equipment-asset-already-registered-violations request st)))
         conf (:confidence proposal 0.0)
         low? (< conf confidence-floor)
         stakes? (boolean (high-stakes (:stake proposal)))

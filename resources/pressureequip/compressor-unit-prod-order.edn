@@ -20,11 +20,13 @@
 
   {:station/seq 3 :station/id "st:compressor-motor-mount" :station/name "Compressor + motor mount"
    :station/op "compressor-motor-mount" :station/cell "cell:assembly-1" :station/cycle-s 2700.0
-   :station/parts ["part:compressor-body" "part:electric-motor" "part:vibration-isolators"]}
+   :station/parts ["part:compressor-body" "part:electric-motor" "part:vibration-isolators"
+                   "part:compressor-mount-bolt-set" "part:motor-mount-bolt-set"]}
 
   {:station/seq 4 :station/id "st:coil-fan-assembly" :station/name "Condenser coil + fan assembly"
    :station/op "coil-fan-assembly" :station/cell "cell:assembly-2" :station/cycle-s 2400.0
-   :station/parts ["part:condenser-coil" "part:fan-assembly"]}
+   :station/parts ["part:condenser-coil" "part:fan-assembly"
+                   "part:condenser-coil-bolt-set" "part:fan-assembly-bolt-set"]}
 
   {:station/seq 5 :station/id "st:piping" :station/name "Refrigerant piping (braze)"
    :station/op "piping" :station/cell "cell:brazing-1" :station/cycle-s 3600.0
@@ -32,7 +34,8 @@
 
   {:station/seq 6 :station/id "st:panel-wiring" :station/name "Control panel + wiring"
    :station/op "panel-wiring" :station/cell "cell:electrical-1" :station/cycle-s 2400.0
-   :station/parts ["part:control-panel" "part:wiring-harness"]}
+   :station/parts ["part:control-panel" "part:wiring-harness"
+                   "part:control-panel-fastener-set" "part:wiring-harness-clamp-set"]}
 
   {:station/seq 7 :station/id "st:refrigerant-charge" :station/name "Refrigerant charge (R-448A)"
    :station/op "refrigerant-charge" :station/cell "cell:charge-1" :station/cycle-s 1800.0

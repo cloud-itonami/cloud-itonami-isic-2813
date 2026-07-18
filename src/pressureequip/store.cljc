@@ -53,6 +53,9 @@
   (next-maintenance-notice-sequence [s jurisdiction] "next maintenance-notice-number sequence for a jurisdiction")
   (unit-already-dispatched? [s unit-id] "has this unit's action already been dispatched?")
   (unit-already-certified? [s unit-id] "has this unit's pressure-test certificate already been issued?")
+  (equipment-asset [s id] "a registered `:equipment-asset` (superproject equipment-asset-linkage shared shape) by id, or nil -- isic-2813's RECEIVE side, toward an upstream manufacturer actor e.g. cloud-itonami-isic-2822")
+  (all-equipment-assets [s] "every registered equipment asset")
+  (equipment-asset-already-registered? [s id] "has an equipment asset with this id already been registered?")
   (commit-record! [s record] "apply a committed op's record to the SSoT")
   (append-ledger! [s fact]   "append one immutable decision fact")
   (with-units [s units] "replace/seed the unit directory (map id->unit)"))
@@ -149,6 +152,9 @@
   (next-maintenance-notice-sequence [_ jurisdiction] (get-in @a [:maintenance-notice-sequences jurisdiction] 0))
   (unit-already-dispatched? [_ unit-id] (boolean (get-in @a [:units unit-id :unit-dispatched?])))
   (unit-already-certified? [_ unit-id] (boolean (get-in @a [:units unit-id :pressure-test-certified?])))
+  (equipment-asset [_ id] (get-in @a [:equipment-assets id]))
+  (all-equipment-assets [_] (vec (vals (:equipment-assets @a))))
+  (equipment-asset-already-registered? [_ id] (contains? (:equipment-assets @a) id))
   (commit-record! [s {:keys [effect path value payload]}]
     (case effect
       :unit/upsert
@@ -191,6 +197,9 @@
                        (update-in [:maintenance-notice-sequences jurisdiction] (fnil inc 0))
                        (update :maintenance-notices registry/append result))))
         result)
+
+      :equipment-asset/register
+      (swap! a assoc-in [:equipment-assets (:equipment-asset/id value)] value)
       nil)
     s)
   (append-ledger! [_ fact] (swap! a update :ledger conj fact) fact)
@@ -203,7 +212,8 @@
   (->MemStore (atom (assoc (demo-data)
                            :verifications {} :pressure-screens {} :ledger [] :dispatch-sequences {}
                            :dispatches [] :evidence-sequences {} :evidences []
-                           :maintenance-notice-sequences {} :maintenance-notices []))))
+                           :maintenance-notice-sequences {} :maintenance-notices []
+                           :equipment-assets {}))))
 
 ;; ----------------------------- DatomicStore (langchain.db) -----------------------------
 
@@ -222,7 +232,8 @@
    :maintenance-notice/seq             {:db/unique :db.unique/identity}
    :dispatch-sequence/jurisdiction     {:db/unique :db.unique/identity}
    :evidence-sequence/jurisdiction     {:db/unique :db.unique/identity}
-   :maintenance-notice-sequence/jurisdiction {:db/unique :db.unique/identity}})
+   :maintenance-notice-sequence/jurisdiction {:db/unique :db.unique/identity}
+   :equipment-asset/id                 {:db/unique :db.unique/identity}})
 
 (defn- enc [v] (pr-str v))
 (defn- dec* [s] (when s (edn/read-string s)))
@@ -263,6 +274,17 @@
      :jurisdiction (:unit/jurisdiction m) :status (:unit/status m)
      :dispatch-number (:unit/dispatch-number m) :evidence-number (:unit/evidence-number m)
      :unit-type-id (:unit/unit-type-id m)}))
+
+(def ^:private equipment-asset-pull
+  "Pull attrs for a registered `:equipment-asset` entity -- the same
+  flat superproject shared-shape keys `commit-record!`'s
+  `:equipment-asset/register` case transacts directly (no `enc`/`dec*`
+  needed, every value here is already a top-level scalar)."
+  [:equipment-asset/id :equipment-asset/unit-type-id :equipment-asset/source-actor
+   :equipment-asset/dispatch-ref :equipment-asset/installed-at-iso :equipment-asset/station-cell])
+
+(defn- pull->equipment-asset [m]
+  (when (:equipment-asset/id m) m))
 
 (defrecord DatomicStore [conn]
   Store
@@ -315,6 +337,13 @@
     (boolean (:unit-dispatched? (unit s unit-id))))
   (unit-already-certified? [s unit-id]
     (boolean (:pressure-test-certified? (unit s unit-id))))
+  (equipment-asset [_ id]
+    (pull->equipment-asset (d/pull (d/db conn) equipment-asset-pull [:equipment-asset/id id])))
+  (all-equipment-assets [_]
+    (->> (d/q '[:find [?id ...] :where [?e :equipment-asset/id ?id]] (d/db conn))
+         (map #(pull->equipment-asset (d/pull (d/db conn) equipment-asset-pull [:equipment-asset/id %])))))
+  (equipment-asset-already-registered? [s id]
+    (boolean (equipment-asset s id)))
   (commit-record! [s {:keys [effect path value payload]}]
     (case effect
       :unit/upsert
@@ -357,6 +386,9 @@
                      [{:maintenance-notice-sequence/jurisdiction jurisdiction :maintenance-notice-sequence/next next-n}
                       {:maintenance-notice/seq (count (maintenance-notice-history s)) :maintenance-notice/record (enc (get result "record"))}])
         result)
+
+      :equipment-asset/register
+      (d/transact! conn [value])
       nil)
     s)
   (append-ledger! [s fact]

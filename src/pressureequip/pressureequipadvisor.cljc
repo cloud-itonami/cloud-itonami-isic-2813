@@ -183,6 +183,46 @@
      :stake      :issue-maintenance-notice
      :confidence (if dispatched? 0.9 0.3)}))
 
+(defn- propose-register-equipment-asset
+  "Draft a REGISTER-EQUIPMENT-ASSET action -- registering a manufactured
+  unit RECEIVED from an upstream manufacturer actor (e.g. cloud-itonami-
+  isic-2822, a machine-tool/welding-cell manufacturer supplying THIS
+  factory's own production line) as an operated equipment asset, tied
+  to one of this factory's own `:station/cell`s (resources/
+  pressureequip/compressor-unit-prod-order.edn). The superproject
+  `:equipment-asset` shared shape (`:equipment-asset/id`/`:unit-type-
+  id`/`:source-actor`/`:dispatch-ref`/`:installed-at-iso`) is the SAME
+  wire shape cloud-itonami-jsic-4721 independently registers for units
+  THIS actor dispatches to it (`propose-maintenance-notice` above) --
+  isic-2813 plays BOTH roles in this fleet (supply side toward
+  jsic-4721, receive side here toward isic-2822). `subject` doubles as
+  the new asset's `:equipment-asset/id`; the advisor only echoes/
+  normalizes the request's own `:equipment-asset/*` fields, it does
+  not invent a source-actor, dispatch-ref or unit-type-id.
+  `pressureequip.governor` INDEPENDENTLY re-verifies required-field
+  presence and the double-registration guard before anything commits."
+  [_db {:keys [subject] :as request}]
+  (let [ea (-> (select-keys request [:equipment-asset/unit-type-id
+                                     :equipment-asset/source-actor
+                                     :equipment-asset/dispatch-ref
+                                     :equipment-asset/installed-at-iso
+                                     :equipment-asset/station-cell])
+               (assoc :equipment-asset/id subject))
+        present? (every? some? ((juxt :equipment-asset/id :equipment-asset/unit-type-id
+                                      :equipment-asset/source-actor :equipment-asset/dispatch-ref)
+                                ea))]
+    {:summary    (str subject " 設備資産登録提案"
+                      (when-let [src (:equipment-asset/source-actor ea)] (str " (source=" src ")")))
+     :rationale  (if present?
+                   (str "供給元 " (:equipment-asset/source-actor ea) " のdispatch-ref "
+                        (:equipment-asset/dispatch-ref ea) " を参照して資産登録")
+                   "必須フィールド(:equipment-asset/id・:unit-type-id・:source-actor・:dispatch-ref)が不足")
+     :cites      (if present? [subject (:equipment-asset/source-actor ea) (:equipment-asset/dispatch-ref ea)] [])
+     :effect     :equipment-asset/register
+     :value      ea
+     :stake      nil
+     :confidence (if present? 0.9 0.3)}))
+
 (defn infer
   "Route a request to the right proposal generator.
   request: {:op kw :subject id ...op-specific...}"
@@ -194,6 +234,7 @@
     :actuation/dispatch-unit                      (propose-unit-dispatch db request)
     :actuation/issue-pressure-test-certificate     (propose-pressure-test-certificate db request)
     :issue-maintenance-notice                     (propose-maintenance-notice db request)
+    :register-equipment-asset                     (propose-register-equipment-asset db request)
     {:summary "未対応の操作" :rationale (str op) :cites []
      :effect :noop :stake nil :confidence 0.0}))
 
@@ -213,7 +254,8 @@
        "キー: :summary(人向けドラフト) :rationale(根拠/必ず事実から) "
        ":cites(使った事実キーのベクタ) "
        ":effect(:unit/upsert|:verification/set|:pressure-test-screen/set|"
-       ":unit/mark-dispatched|:unit/mark-certified|:maintenance-notice/issue) "
+       ":unit/mark-dispatched|:unit/mark-certified|:maintenance-notice/issue|"
+       ":equipment-asset/register) "
        ":stake(:actuation/dispatch-unit か :actuation/issue-pressure-test-certificate か "
        ":issue-maintenance-notice か nil) :confidence(0..1)。\n"
        "重要: 登録されていない法域の要件を絶対に創作してはいけません。"
@@ -226,6 +268,7 @@
     :actuation/dispatch-unit                      {:unit (store/unit st subject)}
     :actuation/issue-pressure-test-certificate     {:unit (store/unit st subject)}
     :issue-maintenance-notice                     {:unit (store/unit st subject)}
+    :register-equipment-asset                     {:equipment-asset (store/equipment-asset st subject)}
     {:unit (store/unit st subject)}))
 
 (defn- parse-proposal

@@ -11,6 +11,17 @@
 ;; (test/pressureequip/assembly_test.cljc) -- the BOM<->process-graph
 ;; analogue of kami-app-sarutahiko-factory's
 ;; `kotoba.sarutahiko-factory.construction-order/reveals-resolve?`.
+;;
+;; Fastener detail (added alongside the original 10 subassembly-level
+;; lines, which are UNCHANGED above/below): the individual bolts/nuts/
+;; washers/screws each subassembly's own fastening uses to attach to
+;; the frame or to each other. Same "hand-authored, illustrative BOM"
+;; disclaimer applies -- generic, common-sense fastener types/
+;; quantities (M-series hex bolt + washer + nut "sets" and enclosure
+;; screw/clamp "sets"), not a real fastener specification or vendor
+;; part list. Each fastener line is consumed at exactly the station
+;; that actually does that fastening (see compressor-unit-prod-
+;; order.edn's `:station/parts`), never a bare loose orphan line.
 {:bom/of :unit/industrial-refrigeration-compressor
  :bom/parts
  [{:part/id "part:compressor-body" :part/name "Compressor body (screw/reciprocating block)" :part/qty 1}
@@ -22,4 +33,11 @@
   {:part/id "part:refrigerant-charge" :part/name "Refrigerant charge (R-448A)" :part/qty 1}
   {:part/id "part:frame" :part/name "Base frame / skid" :part/qty 1}
   {:part/id "part:vibration-isolators" :part/name "Vibration isolators (compressor mounts)" :part/qty 4}
-  {:part/id "part:wiring-harness" :part/name "Power + control wiring harness" :part/qty 1}]}
+  {:part/id "part:wiring-harness" :part/name "Power + control wiring harness" :part/qty 1}
+  ;; -- fastener detail, one line per subassembly's own fastening --
+  {:part/id "part:compressor-mount-bolt-set" :part/name "Compressor mounting bolt/washer/nut set (through vibration isolators)" :part/qty 4}
+  {:part/id "part:motor-mount-bolt-set" :part/name "Electric motor mounting bolt/washer/nut set" :part/qty 4}
+  {:part/id "part:condenser-coil-bolt-set" :part/name "Condenser coil bracket mounting bolt set" :part/qty 4}
+  {:part/id "part:fan-assembly-bolt-set" :part/name "Condenser fan mounting bolt set (per fan)" :part/qty 8}
+  {:part/id "part:control-panel-fastener-set" :part/name "Control panel enclosure mounting screw set" :part/qty 6}
+  {:part/id "part:wiring-harness-clamp-set" :part/name "Wiring harness retaining clamp set" :part/qty 4}]}
