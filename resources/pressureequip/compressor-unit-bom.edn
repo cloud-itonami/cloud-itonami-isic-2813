@@ -68,6 +68,38 @@
 ;; like op" scope. See superproject ADR-2800000500 Alternatives for
 ;; the full reasoning; this is a deliberate scope decision, not an
 ;; oversight.
+;;
+;; Remaining-parts supplier linkage (superproject part-supplier-
+;; linkage ADR, follow-up to ADR-2800000500/ADR-2800000600): four more
+;; subassembly-level lines now name a real-world supplier actor via
+;; the SAME optional `:part/supplier-actor` key --
+;; `part:frame`/`part:control-panel`/`part:piping`/`part:vibration-
+;; isolators`. Steel-stock supplier choice for `part:frame`: real
+;; compressor base frames/skids are FABRICATED structural steel
+;; (welded plate/channel/I-beam), not iron/steel castings, so
+;; cloud-itonami-isic-2410 ("basic iron and steel manufacturing" --
+;; despite its own README's shipbuilding framing, its actual domain
+;; model is heats/mill-certs/block-dispatch, i.e. structural steel
+;; stock with mill certification -- confirmed by reading
+;; `steelworks.governor`/`steelworks.registry`) is the better match
+;; than the casting-foundry siblings `cloud-itonami-isic-2431`
+;; (iron/steel casting) or `cloud-itonami-isic-2432` (non-ferrous
+;; casting), whose own READMEs explicitly scope themselves to POURED/
+;; CAST parts (engine blocks, valve bodies) rather than fabricated
+;; structural stock. `part:control-panel` names cloud-itonami-isic-2610
+;; ("Semiconductor and Electronics Manufacturing Enablement") as the
+;; electronic-component supplier. `part:piping` and `part:vibration-
+;; isolators` both name cloud-itonami-isic-2599 ("Manufacture of other
+;; fabricated metal products n.e.c."), the fabricated-metal-goods shop
+;; whose own product scope (stamped/pressed sheet-metal parts, wire
+;; products, metal household goods) covers both a formed-metal-pipe
+;; product and a stamped/formed vibration-isolator mount equally well.
+;; The receive-side counterpart remains the SAME `pressureequip.
+;; governor`'s `:register-part-receipt` op used for `part:electric-
+;; motor` -- no receive-side change was needed: `part-receipt-fields-
+;; present?`/`part-receipt-handoff-incomplete-violations` never
+;; hardcode a specific `:part-receipt/part-id` value or supplier name,
+;; so they already validate a `:handoff` receipt for these parts too.
 {:bom/of :unit/industrial-refrigeration-compressor
  :bom/parts
  [{:part/id "part:compressor-body" :part/name "Compressor body (screw/reciprocating block)" :part/qty 1}
@@ -75,11 +107,15 @@
    :part/supplier-actor "cloud-itonami-isic-2710"}
   {:part/id "part:condenser-coil" :part/name "Condenser coil" :part/qty 1}
   {:part/id "part:am-fan-housing" :part/name "Additively-manufactured condenser fan housing/impeller (integrated single-piece, metal powder-bed-fusion 3D print)" :part/qty 2}
-  {:part/id "part:control-panel" :part/name "Control panel (NEMA/IP-rated enclosure)" :part/qty 1}
-  {:part/id "part:piping" :part/name "Refrigerant piping (suction / discharge / liquid lines)" :part/qty 1}
+  {:part/id "part:control-panel" :part/name "Control panel (NEMA/IP-rated enclosure)" :part/qty 1
+   :part/supplier-actor "cloud-itonami-isic-2610"}
+  {:part/id "part:piping" :part/name "Refrigerant piping (suction / discharge / liquid lines)" :part/qty 1
+   :part/supplier-actor "cloud-itonami-isic-2599"}
   {:part/id "part:refrigerant-charge" :part/name "Refrigerant charge (R-448A)" :part/qty 1}
-  {:part/id "part:frame" :part/name "Base frame / skid" :part/qty 1}
-  {:part/id "part:vibration-isolators" :part/name "Vibration isolators (compressor mounts)" :part/qty 4}
+  {:part/id "part:frame" :part/name "Base frame / skid" :part/qty 1
+   :part/supplier-actor "cloud-itonami-isic-2410"}
+  {:part/id "part:vibration-isolators" :part/name "Vibration isolators (compressor mounts)" :part/qty 4
+   :part/supplier-actor "cloud-itonami-isic-2599"}
   {:part/id "part:wiring-harness" :part/name "Power + control wiring harness" :part/qty 1}
   ;; -- fastener detail, one line per subassembly's own fastening --
   {:part/id "part:compressor-mount-bolt-set" :part/name "Compressor mounting bolt/washer/nut set (through vibration isolators)" :part/qty 4}
