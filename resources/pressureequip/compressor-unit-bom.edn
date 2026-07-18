@@ -49,25 +49,36 @@
 ;; optionally carry a `:handoff` (ADR-2607177600 shared shape, reused
 ;; as-is) tracing a specific received batch back to a specific
 ;; isic-2710 shipment. `part:refrigerant-charge` (R-448A, a blended
-;; hydrofluorocarbon/hydrofluoroolefin refrigerant) is DELIBERATELY
-;; left WITHOUT a `:part/supplier-actor`: R-448A is a basic fluorinated
-;; organic chemical, which the real ISIC classification places under
-;; 2011 ("Manufacture of basic chemicals" -- industrial gases/
-;; halogenated organic chemicals), NOT 2029 ("Manufacture of other
-;; chemical products n.e.c.", this fleet's registered chemical actor
-;; whose own domain/product-type model is adhesive/glue manufacturing
-;; specifically -- purity%/viscosity(cP) checks that do not generalize
-;; to a gas blend). cloud-itonami-isic-2011 IS registered in this
-;; fleet and correctly classified, but its implemented op surface
-;; (`:proposal/intake-feedstock`/`:actuation/schedule-reaction`/
-;; `:proposal/coordinate-byproduct-disposal`/`:actuation/log-
-;; emissions-report`) has NO outbound finished-product shipment op at
-;; all to attach an optional `:handoff` onto -- adding one would mean
-;; inventing a new actuation end-to-end (governor check, phase gate,
-;; tests), beyond this task's "attach handoff to an existing dispatch-
-;; like op" scope. See superproject ADR-2800000500 Alternatives for
-;; the full reasoning; this is a deliberate scope decision, not an
-;; oversight.
+;; hydrofluorocarbon/hydrofluoroolefin refrigerant) previously had NO
+;; `:part/supplier-actor` at all: at the time ADR-2800000500/
+;; ADR-2800000600 were written, `cloud-itonami-isic-2011` ("Manufacture
+;; of basic chemicals" -- the real ISIC classification for R-448A's
+;; own industrial-gas/halogenated-organic-chemical category, distinct
+;; from `cloud-itonami-isic-2029`'s adhesive/glue-manufacturing
+;; domain/product-type model) had NO implemented op surface at all
+;; (scaffold-only blueprint, no `src/`) -- ADR-2800000600 explicitly
+;; flagged this as a follow-up requiring a new actuation end-to-end
+;; (governor check, phase gate, tests), beyond that task's "attach
+;; handoff to an EXISTING dispatch-like op" scope.
+;;
+;; That follow-up is now done (superproject ADR-2800001000):
+;; `cloud-itonami-isic-2011` implements a real `basicchem.*` actor
+;; (Basic Chemicals Advisor ⊣ Chemical Safety Governor) whose
+;; `:release-batch` op is a genuine outbound-shipment-like actuation
+;; (always human-gated, HARD-blocked if the batch was never logged,
+;; its evidence checklist is incomplete, its own reaction temperature
+;; falls outside spec, or an unresolved process-safety concern is on
+;; file) and can OPTIONALLY carry the SAME `:handoff` shared shape
+;; (ADR-2607177600, reused as-is) this BOM's other supplier-linked
+;; parts already use. `part:refrigerant-charge` now names
+;; cloud-itonami-isic-2011 as its real-world supplier actor --
+;; the receive-side counterpart remains the SAME
+;; `pressureequip.governor`'s `:register-part-receipt` op used for
+;; every other supplier-linked part above: no receive-side change was
+;; needed (`part-receipt-fields-present?`/`part-receipt-handoff-
+;; incomplete-violations` never hardcode a specific `:part-receipt/
+;; part-id` value or supplier name, so they already validate a
+;; `:handoff` receipt naming cloud-itonami-isic-2011 too).
 ;;
 ;; Remaining-parts supplier linkage (superproject part-supplier-
 ;; linkage ADR, follow-up to ADR-2800000500/ADR-2800000600): four more
@@ -111,7 +122,8 @@
    :part/supplier-actor "cloud-itonami-isic-2610"}
   {:part/id "part:piping" :part/name "Refrigerant piping (suction / discharge / liquid lines)" :part/qty 1
    :part/supplier-actor "cloud-itonami-isic-2599"}
-  {:part/id "part:refrigerant-charge" :part/name "Refrigerant charge (R-448A)" :part/qty 1}
+  {:part/id "part:refrigerant-charge" :part/name "Refrigerant charge (R-448A)" :part/qty 1
+   :part/supplier-actor "cloud-itonami-isic-2011"}
   {:part/id "part:frame" :part/name "Base frame / skid" :part/qty 1
    :part/supplier-actor "cloud-itonami-isic-2410"}
   {:part/id "part:vibration-isolators" :part/name "Vibration isolators (compressor mounts)" :part/qty 4

@@ -443,3 +443,36 @@
         (is (= :commit (get-in r2b [:state :disposition])))
         (is (= "cloud-itonami-isic-2599" (:handoff/source-actor (:handoff piping-pr))))
         (is (= "cloud-itonami-isic-2599" (:handoff/source-actor (:handoff viso-pr))))))))
+
+;; ───────────── Additive: refrigerant-charge supplier linkage (superproject ADR-2800001000, follow-up to ADR-2800000500/ADR-2800000600) ─────────────
+;;
+;; `compressor-unit-bom.edn`'s `part:refrigerant-charge` (R-448A) now
+;; names `cloud-itonami-isic-2011` as its real-world supplier actor,
+;; via the SAME optional `:part/supplier-actor` key every other
+;; supplier-linked part above uses -- isic-2011 previously had no
+;; implemented op surface at all (ADR-2800000600 follow-up), so this
+;; linkage was deferred until isic-2011 implemented a real
+;; `:release-batch` actuation capable of carrying the `:handoff`
+;; shape. The RECEIVE side is the SAME `:register-part-receipt` op
+;; exercised above -- no governor/registry/store change was needed
+;; here either (the same genericity `part-receipt-fields-present?`/
+;; `part-receipt-handoff-incomplete-violations` already established).
+
+(deftest register-part-receipt-with-complete-handoff-for-refrigerant-charge-from-isic-2011
+  (testing "a part receipt for part:refrigerant-charge WITH a complete :handoff from cloud-itonami-isic-2011 registers and carries the supplier linkage through to the SSoT"
+    (let [[db actor] (fresh)
+          request {:op :register-part-receipt :subject "pr-10"
+                   :part-receipt/part-id "part:refrigerant-charge" :part-receipt/qty 1
+                   :handoff {:handoff/id "ho-9"
+                             :handoff/source-actor "cloud-itonami-isic-2011"
+                             :handoff/batch-id "JPN-REL-000000"
+                             :handoff/product-type-id "part:refrigerant-charge"
+                             :handoff/quantity-kg 500.0
+                             :handoff/dispatched-at-iso "2026-07-18T00:00:00Z"}}
+          r1 (exec-op actor "t26" request operator)]
+      (is (= :interrupted (:status r1)) "pauses for human approval even when governor-clean")
+      (let [r2 (approve! actor "t26")
+            pr (store/part-receipt db "pr-10")]
+        (is (= :commit (get-in r2 [:state :disposition])))
+        (is (= "part:refrigerant-charge" (:part-receipt/part-id pr)))
+        (is (= "cloud-itonami-isic-2011" (:handoff/source-actor (:handoff pr))))))))
