@@ -1,10 +1,13 @@
 name: ci
 
-# Kept correct and ready for when Actions are enabled on the org.
-# Until then: run locally with `clojure -M:lint` and `clojure -M:dev:test`.
+# Actions are enabled on the org and this runs on every push/PR (verified
+# 2026-07-18). Local equivalents: `clojure -M:lint`, `clojure -M:dev:test`,
+# `clojure -M:visualize` (needs Node + a Playwright chromium install; see
+# scripts/pw_eval.cjs and the `visualize` job below).
 #
 # Workspace layout: deps use :local/root to kotoba-lang/langgraph and
-# kotoba-lang/langchain (public). CI reconstructs sibling paths.
+# kotoba-lang/langchain (public), and (for `:visualize` only) the further
+# kotoba-lang/webgpu :local/root closure. CI reconstructs sibling paths.
 
 on:
   push:
@@ -44,3 +47,65 @@ jobs:
       - name: test (governor · store parity · export · phases · facts)
         working-directory: orgs/cloud-itonami/cloud-itonami-isic-2813
         run: clojure -M:dev:test
+
+  # OPT-IN 3D visualization E2E gate (deps.edn's :visualize alias -- see its own
+  # comment). NOT part of the `test` job above: it needs kotoba-lang/webgpu's full
+  # render-executor stack + a real headless Chromium, deliberately isolated so a
+  # plain `clojure -M:dev:test` push never needs any of this. `clojure -Spath
+  # -M:visualize` was used locally to enumerate the FULL `:local/root` transitive
+  # closure webgpu's own deps.edn pulls in (webgpu declares ~20 further
+  # `:local/root` siblings of its own, e.g. wgsl/expr/render/host/physics-2d/
+  # kami-engine-sdk -- none of which this actor's own code calls directly, but
+  # tools.deps still needs every one of them physically checked out to resolve the
+  # classpath at all) -- the checkout list below is that closure, not a guess.
+  # Mirrors kotoba-lang/webgpu's own `render-verify` CI job's already-green
+  # ubuntu-latest pattern (checkout sibling graph -> Node -> `npx playwright
+  # install --with-deps chromium` -> run the render test).
+  visualize:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { path: orgs/cloud-itonami/cloud-itonami-isic-2813 }
+      - uses: actions/checkout@v4
+        with:
+          repository: kotoba-lang/langgraph
+          path: orgs/kotoba-lang/langgraph
+      - uses: actions/checkout@v4
+        with:
+          repository: kotoba-lang/langchain
+          path: orgs/kotoba-lang/langchain
+      - uses: actions/checkout@v4
+        with:
+          repository: kotoba-lang/webgpu
+          path: orgs/kotoba-lang/webgpu
+      - uses: actions/checkout@v4
+        with:
+          repository: kotoba-lang/playwright
+          path: orgs/kotoba-lang/playwright
+      - uses: actions/checkout@v4
+        with:
+          repository: kotoba-lang/physics
+          path: orgs/kotoba-lang/physics
+      - name: Checkout kotoba-lang/webgpu's own :local/root sibling closure
+        run: |
+          mkdir -p orgs/kotoba-lang
+          for repo in org-w3-webgpu wgsl expr sprite-gpu sprite2d sky shaders \
+                      render render-shaders scene2d gpu webgl dance fsm netsync \
+                      pipelines level host cartpole-math physics-2d kami-engine-sdk; do
+            git clone --depth 1 "https://github.com/kotoba-lang/${repo}.git" "orgs/kotoba-lang/${repo}"
+          done
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: "21" }
+      - uses: DeLaGuardo/setup-clojure@13.0
+        with: { cli: latest }
+      - uses: actions/setup-node@v4
+        with: { node-version: "22" }
+      - name: npm install (playwright devDependency)
+        working-directory: orgs/cloud-itonami/cloud-itonami-isic-2813
+        run: npm install
+      - name: Install headless Chromium (Playwright)
+        working-directory: orgs/cloud-itonami/cloud-itonami-isic-2813
+        run: npx playwright install --with-deps chromium
+      - name: test (3D render-IR visualization E2E, real headless WebGL2 -- pressureequip.scene)
+        working-directory: orgs/cloud-itonami/cloud-itonami-isic-2813
+        run: clojure -M:visualize
