@@ -58,9 +58,20 @@
   (never fixed capital, see `pressureequip.governor` ns docstring
   Addendum 4), NOT in `high-stakes`, and never auto-eligible in
   practice since phase 3's `:auto` set is UNCHANGED by this
-  addition.")
+  addition.
 
-(def read-ops  #{})
+  `:discover/tsukuru-factory-candidates` (superproject fictional-
+  actor<->real-external-system bridge ADR) joins `read-ops`, NOT
+  `write-ops` -- a READ-ONLY candidate-discovery query against the
+  REAL `orgs/etzhayyim/com-etzhayyim-tsukuru` factory registry can
+  never mutate this actor's own SSoT beyond an audit-ledger entry, so
+  it never needs the phase-gate's write/auto machinery at all: like
+  every sibling actor's own `read-ops` members (e.g. `crm`'s
+  `:pipeline/dashboard-query`, `dossier`'s `:disclosure/query`), it
+  simply passes the governor's own disposition straight through at
+  every phase, 0 through 3 -- see `gate` below.")
+
+(def read-ops  #{:discover/tsukuru-factory-candidates})
 (def write-ops #{:unit/intake :design-rules/verify :pressure-test/screen
                  :actuation/dispatch-unit :actuation/issue-pressure-test-certificate
                  :issue-maintenance-notice :register-equipment-asset

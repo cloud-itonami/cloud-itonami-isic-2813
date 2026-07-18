@@ -247,3 +247,73 @@
   (and (map? ref)
        (every? some? ((juxt :testlab-engagement-ref/id :testlab-engagement-ref/source-actor
                             :testlab-engagement-ref/certification-number) ref))))
+
+;; ----------------------------- tsukuru discovery bridge (additive, read-only) -----------------------------
+;;
+;; Pure input-validation predicates for `:discover/tsukuru-factory-
+;; candidates` (superproject fictional-actor<->real-external-system
+;; bridge ADR) -- the FIRST bridge in this fleet from a fictional
+;; cloud-itonami Open-Business-Blueprint actor to a REAL, independently
+;; operated external system (`orgs/etzhayyim/com-etzhayyim-tsukuru`,
+;; `tsukuru.etzhayyim.com`). See `pressureequip.tsukuru-bridge` ns
+;; docstring for the full safety-boundary rationale; these two
+;; predicates are the pure, no-I/O core `pressureequip.governor`'s new
+;; hard checks call -- never the network fetch itself.
+
+(defn valid-isic-code?
+  "True when `isic-code` LOOKS like an ISIC rev.4 section/class code --
+  either a bare numeric division/class code (e.g. \"2822\", 2-4 digits,
+  matching this actor's OWN `isic-2813` repo-naming convention) or a
+  section-letter + 2-digit division (e.g. \"C26\", per tsukuru's own
+  `lex/factory.edn` `:isic` field description: \"ISIC rev.4
+  section/class (e.g. C26 semiconductor)\"). Pure format validation
+  ONLY -- this does NOT verify the code is a REAL, registered ISIC
+  entry (this actor keeps no ISIC catalog); it only rejects
+  structurally-malformed input before a query is ever sent to the real
+  tsukuru registry, the same honest, non-fabricating discipline
+  `pressureequip.facts` uses for jurisdiction spec-basis."
+  [isic-code]
+  (and (string? isic-code)
+       (boolean (re-matches #"[A-Za-z]?\d{2,4}" isic-code))))
+
+(def order-contamination-keys
+  "Closed set of production-order/settlement/buyer field names, as BOTH
+  bare keywords AND strings -- this actor's own request/proposal keys
+  are keywords, and `pressureequip.tsukuru-bridge`'s fetched `factory`
+  records are ALSO keyword-keyed (`kotoba.lang.atproto-client`'s own
+  `json-read` deeply keywordizes every parsed field), but this set
+  covers the string form too as defense-in-depth against any future
+  path that hands this a pre-parse/raw-JSON shape instead. Must NEVER
+  appear anywhere in a read-only tsukuru discovery request or
+  proposal. Sourced directly from
+  `com.etzhayyim.tsukuru.production-order`'s own required/settlement
+  fields (`buyerDid`/`orderId`) plus the settlement/payment fields any
+  real order-EXECUTION flow would need (`settlementId`/`usdcTx`/
+  `paymentRef`) -- see `pressureequip.governor/tsukuru-query-contains-
+  order-fields-violations` for why ANY of these appearing here is a
+  HARD, un-overridable hold: tsukuru's own `production-order` lexicon
+  requires `buyerDid` to be a REAL etzhayyim member (active Adherent
+  SBT, purchasing principal per its own Gate G14), and this actor is a
+  FICTIONAL governor-gated cloud-itonami actor that structurally cannot
+  be one."
+  #{:buyerDid :orderId :settlementId :usdcTx :paymentRef
+    :buyer-did :order-id :settlement-id
+    "buyerDid" "orderId" "settlementId" "usdcTx" "paymentRef"
+    "buyer-did" "order-id" "settlement-id"})
+
+(defn contains-order-fields?
+  "Deep, pure structural scan: does `x` (any nested map/vector/seq)
+  contain a key from `order-contamination-keys` at ANY level? No
+  network I/O, no trust in any `:type`/`:$type`/`\"$type\"` self-
+  declaration inside `x` -- every key at every depth is checked
+  against the SAME closed set, the discipline this fleet's other
+  anti-fabrication checks (e.g. `unit-type-unregistered-violations`
+  never trusting a `:unit-type-id` reference's own say-so) already
+  establish, applied here to an entire request/proposal shape instead
+  of one reference field."
+  [x]
+  (cond
+    (map? x) (boolean (or (some order-contamination-keys (keys x))
+                          (some contains-order-fields? (vals x))))
+    (sequential? x) (boolean (some contains-order-fields? x))
+    :else false))

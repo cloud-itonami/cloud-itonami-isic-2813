@@ -51,4 +51,23 @@
    :override-deps {io.github.kotoba-lang/physics {:local/root "../../kotoba-lang/physics"}}
    :main-opts ["-m" "cognitect.test-runner" "-d" "test-visualize"]
    :exec-fn cognitect.test-runner.api/test
-   :exec-args {:dirs ["test-visualize"]}}}}
+   :exec-args {:dirs ["test-visualize"]}}
+  ;; OPT-IN tsukuru factory-discovery bridge tests (superproject
+  ;; fictional-actor<->real-external-system bridge ADR --
+  ;; `pressureequip.tsukuru-bridge`, `:discover/tsukuru-factory-
+  ;; candidates`): exercises the bridge against a mock/stub `IHttp`
+  ;; (never the real `tsukr8u0.etzhayyim.com`). Deliberately isolated
+  ;; from :test, the SAME reasoning `:visualize` above already
+  ;; documents: `io.github.kotoba-lang/atproto-client` is NOT part of
+  ;; top-level :deps or the default "test" dir `clojure -M:test` scans,
+  ;; so a normal `clojure -M:test` run never needs an AT-Proto client
+  ;; on the classpath. Run with:
+  ;;   clojure -M:tsukuru-bridge
+  :tsukuru-bridge
+  {:extra-paths ["test-tsukuru-bridge"]
+   :extra-deps {io.github.kotoba-lang/atproto-client {:local/root "../../kotoba-lang/atproto-client"}
+                io.github.cognitect-labs/test-runner
+                {:git/tag "v0.5.1" :git/sha "dfb30dd"}}
+   :main-opts ["-m" "cognitect.test-runner" "-d" "test-tsukuru-bridge"]
+   :exec-fn cognitect.test-runner.api/test
+   :exec-args {:dirs ["test-tsukuru-bridge"]}}}}

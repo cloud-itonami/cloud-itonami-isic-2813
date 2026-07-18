@@ -210,8 +210,50 @@
   REFERENCE's own wire-shape completeness (`registry/testlab-
   engagement-ref-fields-present?`), not reach across and confirm the
   referenced engagement/certification actually exists on isic-7120's
-  live store."
-  (:require [pressureequip.facts :as facts]
+  live store.
+
+  Addendum 6 (superproject fictional-actor<->real-external-system
+  bridge ADR, first of its kind in this fleet): a FIFTEENTH and
+  SIXTEENTH HARD check, `tsukuru-discovery-input-invalid-violations`/
+  `tsukuru-query-contains-order-fields-violations`, were added
+  alongside a new `:discover/tsukuru-factory-candidates` op --
+  isic-2813's READ-ONLY discovery bridge into the REAL, independently
+  operated `orgs/etzhayyim/com-etzhayyim-tsukuru` B2B factory-direct-
+  ordering platform (`tsukuru.etzhayyim.com`), via
+  `pressureequip.tsukuru-bridge` (built on this workspace's shared
+  `kotoba.lang.atproto-client`). Unlike every prior addendum's checks,
+  which independently RE-VERIFY a domain fact already on file (a
+  jurisdiction, a unit-type reference, a dispatch-ref), these two
+  checks validate the SHAPE of a query against a system this actor
+  does not own and has no write access to: (1) `tsukuru-discovery-
+  input-invalid-violations` -- pure format validation of the ISIC
+  code + non-empty capability keyword, the ONLY governor-level check
+  this op needs (`pressureequip.tsukuru-bridge`/the operation layer,
+  never the governor, performs the actual read-only query); (2)
+  `tsukuru-query-contains-order-fields-violations` -- a deep scan
+  (`registry/contains-order-fields?`) refusing ANY request/proposal
+  that smuggles in a production-order/settlement/buyer field
+  (`:buyerDid`/`:orderId`/`:settlementId`/etc, see `registry/order-
+  contamination-keys`). This is the CONCRETE implementation of this
+  bridge's permanent read-only safety boundary: tsukuru's own
+  `production-order` lexicon requires `buyerDid` to be a REAL
+  etzhayyim member (active Adherent SBT, purchasing principal per its
+  own Gate G14) with a member DID-signed consent before order capture
+  (Gate G1) -- `cloud-itonami-isic-2813` is a FICTIONAL, governor-
+  gated actor and structurally cannot be one, so ANY code path toward
+  constructing/submitting an order on tsukuru's behalf would
+  impersonate a purchasing principal that does not exist. This actor
+  therefore implements NOTHING beyond `:discover/tsukuru-factory-
+  candidates` toward tsukuru -- a closed allowlist of exactly one
+  op IS the boundary, and this check is its independent, defense-in-
+  depth enforcement (should a future edit ever try to widen the
+  op's `:value` shape to carry order fields, this HARD-holds it).
+  Registered in `pressureequip.phase/read-ops` (never `write-ops`):
+  it can never write to this actor's own SSoT beyond an audit-ledger
+  entry, and it never touches the phase-gate's write/auto machinery
+  at all."
+  (:require [clojure.string :as str]
+            [pressureequip.facts :as facts]
             [pressureequip.registry :as registry]
             [pressureequip.store :as store]))
 
@@ -455,6 +497,50 @@
       [{:rule :testlab-engagement-ref-missing
         :detail "第三者検定機関(cloud-itonami-isic-7120)のengagement/certification参照(:certification/testlab-engagement-ref)が無い、または不完全 -- 自己発行のみでの耐圧証明書発行は許可されない"}])))
 
+(defn- tsukuru-discovery-input-invalid-violations
+  "For `:discover/tsukuru-factory-candidates`, pure format validation
+  ONLY, against the RAW request (the ground truth of what was asked,
+  not the advisor's own echo of it) -- the ISIC code must look like an
+  ISIC rev.4 section/class code (`registry/valid-isic-code?`) and the
+  capability keyword/string must be non-blank. This is the ENTIRE
+  governor-level check for this op's own input shape; the actual
+  read-only query against the real tsukuru registry is performed by
+  `pressureequip.tsukuru-bridge`/the operation layer, never here (see
+  ns docstring Addendum 6)."
+  [{:keys [op isic-code capability]}]
+  (when (= op :discover/tsukuru-factory-candidates)
+    (into []
+         (concat
+          (when-not (registry/valid-isic-code? isic-code)
+            [{:rule :tsukuru-discovery-invalid-isic-code
+              :detail (str "ISICコード形式が不正 (ISIC rev.4 section/class 形式ではない): " (pr-str isic-code))}])
+          (when (or (nil? capability)
+                    (and (string? capability) (str/blank? capability)))
+            [{:rule :tsukuru-discovery-missing-capability
+              :detail "capability keyword/文字列が空 -- 検索対象capabilityの指定が必須"}])))))
+
+(defn- tsukuru-query-contains-order-fields-violations
+  "For `:discover/tsukuru-factory-candidates`, HARD un-overridable:
+  refuses ANY request or proposal that carries a production-order/
+  settlement/buyer field ANYWHERE in its structure
+  (`registry/contains-order-fields?`, a deep scan against the closed
+  `registry/order-contamination-keys` set) -- this read-only
+  candidate-discovery query must NEVER carry an order/settlement/buyer
+  field, because tsukuru's own `production-order` lexicon requires
+  `buyerDid` to be a REAL etzhayyim member (active Adherent SBT,
+  purchasing principal) this FICTIONAL actor structurally is not (see
+  ns docstring Addendum 6 for the full rationale). Scans BOTH the raw
+  request (in case a caller tried to smuggle an order field in
+  alongside `:isic-code`/`:capability`) AND the advisor's own proposal
+  `:value` (in case a future/compromised advisor implementation ever
+  echoes one back) -- never trust either side alone."
+  [{:keys [op] :as request} proposal]
+  (when (= op :discover/tsukuru-factory-candidates)
+    (when (or (registry/contains-order-fields? request)
+              (registry/contains-order-fields? (:value proposal)))
+      [{:rule :tsukuru-query-contains-order-fields
+        :detail "発注/決済/購買主体関連フィールド(buyerDid/orderId/settlementId等)が読み取り専用discoveryクエリに混入 -- 実発注は実etzhayyim member(active Adherent SBT)のみ可能で、このactorはフィクションのため構造的に購買principalになれない"}])))
+
 (defn check
   "Censors a Pressure Equipment Advisor proposal against the governor
   rules. Returns {:ok? bool :violations [..] :confidence c :escalate?
@@ -483,7 +569,12 @@
   FOURTEENTH hard check (see ns docstring Addendum 5), a BREAKING
   change for `:actuation/issue-pressure-test-certificate`: unlike
   every other op-scoped check above, this one fires on a MISSING
-  field, not only a fabricated/incomplete one."
+  field, not only a fabricated/incomplete one. Also includes
+  `tsukuru-discovery-input-invalid-violations`/
+  `tsukuru-query-contains-order-fields-violations` -- a FIFTEENTH
+  and SIXTEENTH hard check added alongside `:discover/tsukuru-
+  factory-candidates` (see ns docstring Addendum 6), purely additive:
+  both only ever fire for that op."
   [request _context proposal st]
   (let [hard (into []
                    (concat (spec-basis-violations request proposal)
@@ -499,7 +590,9 @@
                            (part-receipt-missing-fields-violations request proposal)
                            (part-receipt-already-registered-violations request st)
                            (part-receipt-handoff-incomplete-violations request proposal)
-                           (testlab-engagement-ref-missing-violations request proposal)))
+                           (testlab-engagement-ref-missing-violations request proposal)
+                           (tsukuru-discovery-input-invalid-violations request)
+                           (tsukuru-query-contains-order-fields-violations request proposal)))
         conf (:confidence proposal 0.0)
         low? (< conf confidence-floor)
         stakes? (boolean (high-stakes (:stake proposal)))

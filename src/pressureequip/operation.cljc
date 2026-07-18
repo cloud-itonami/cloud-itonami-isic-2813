@@ -23,7 +23,24 @@
   engineer). The approver resumes with `{:approval {:status :approved}}`
   (or :rejected). `:actuation/dispatch-unit`/`:actuation/issue-
   pressure-test-certificate` ALWAYS reach this node when the governor
-  is clean -- see `pressureequip.phase`."
+  is clean -- see `pressureequip.phase`.
+
+  `:discover/tsukuru-factory-candidates` runs through this SAME graph
+  (`build`) like every other op -- the graph itself is agnostic to
+  where a request's fields came from. The operation-layer entry point
+  that actually performs the READ-ONLY network query against the REAL
+  `orgs/etzhayyim/com-etzhayyim-tsukuru` factory registry BEFORE
+  driving this graph is `pressureequip.tsukuru-discovery/discover!`
+  -- deliberately kept in its OWN namespace, not required by this one:
+  this ns is always on the default classpath (every existing test
+  requires it directly), and `pressureequip.tsukuru-discovery` is the
+  ONLY consumer of `pressureequip.tsukuru-bridge`/`kotoba.lang.
+  atproto-client`, which are opt-in (`:tsukuru-bridge` alias, see
+  `deps.edn`) -- keeping that require here would force an AT-Proto
+  client dependency onto every ordinary `clojure -M:test` run of this
+  actor. See `pressureequip.tsukuru-bridge` ns docstring for why this
+  actor implements NOTHING beyond this one read-only query toward
+  tsukuru."
   (:require [langgraph.graph :as g]
             [langgraph.checkpoint :as cp]
             [pressureequip.pressureequipadvisor :as pressureequipadvisor]

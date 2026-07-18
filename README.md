@@ -79,6 +79,45 @@ pressure-equipment plant's own acts.
 | `:actuation/dispatch-unit` | draft unit-dispatch record (always human) |
 | `:actuation/issue-pressure-test-certificate` | draft pressure-test-certificate record (always human) |
 | `:issue-maintenance-notice` | draft maintenance/recall-notice record referencing a prior dispatch (always human; independently verified against dispatch history) |
+| `:discover/tsukuru-factory-candidates` | READ-ONLY candidate-discovery query against the REAL `orgs/etzhayyim/com-etzhayyim-tsukuru` factory registry (auto-commits when governor-clean; never writes to this actor's own SSoT beyond the audit ledger) |
+
+## Tsukuru factory-discovery bridge (read-only, by design)
+
+`pressureequip.tsukuru-bridge` + `pressureequip.tsukuru-discovery` are
+this actor's **first bridge to a REAL, independently operated
+external system** (`orgs/etzhayyim/com-etzhayyim-tsukuru`, a real
+B2B factory-direct-ordering platform) rather than a fictional sibling
+cloud-itonami actor. It is built on this workspace's shared
+[`kotoba.lang.atproto-client`](https://github.com/kotoba-lang/atproto-client)
+and exposes exactly ONE query: `:discover/tsukuru-factory-candidates`
+(ISIC code + capability -> matching `com.etzhayyim.tsukuru.factory`
+records).
+
+This actor will **never** implement a real `production-order`/
+`progress`/`quality`/`settlement` op toward tsukuru. tsukuru's own
+`production-order` lexicon requires `buyerDid` to be a REAL etzhayyim
+member (active Adherent SBT, purchasing principal per its own Gate
+G14) with a member DID-signed consent before order capture (Gate G1)
+-- `cloud-itonami-isic-2813` is a FICTIONAL, governor-gated Open
+Business Blueprint actor and structurally cannot be one. Automating
+an order/payment flow on tsukuru's behalf would impersonate a
+purchasing principal that does not exist. The closed allowlist of
+exactly this one op **is** the safety boundary, independently
+enforced in code by `pressureequip.governor/tsukuru-query-contains-
+order-fields-violations` (a HARD, un-overridable hold if a
+production-order/settlement/buyer field ever appears in a discovery
+request or proposal) -- see that check's docstring and the
+superproject ADR for the full rationale.
+
+`io.github.kotoba-lang/atproto-client` is an opt-in dependency
+(`deps.edn`'s `:tsukuru-bridge` alias, mirroring `:visualize`'s
+isolation) -- a plain `clojure -M:test`/`clojure -M:dev:test` never
+needs an AT-Proto client on the classpath. Bridge-level tests (mock
+`IHttp`, never the real `tsukr8u0.etzhayyim.com`) run with:
+
+```bash
+clojure -M:tsukuru-bridge
+```
 
 ## Social / regulatory hand-off
 

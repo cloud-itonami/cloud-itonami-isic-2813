@@ -287,6 +287,36 @@
      :stake      nil
      :confidence (if required-present? 0.9 0.3)}))
 
+(defn- propose-tsukuru-discovery
+  "Package a `:discover/tsukuru-factory-candidates` READ-ONLY discovery
+  proposal -- the first bridge in this fleet from this FICTIONAL
+  governor-gated actor to a REAL, independently operated external
+  system (`orgs/etzhayyim/com-etzhayyim-tsukuru`,
+  `tsukuru.etzhayyim.com`). Like `normalize-intake`, the advisor does
+  NOT perform the external query itself -- `pressureequip.operation`
+  (the operation layer) already fetched `:candidates` from the real
+  tsukuru `com.etzhayyim.tsukuru.factory` registry (via
+  `pressureequip.tsukuru-bridge`, built on `kotoba.lang.atproto-client`)
+  BEFORE this request ever reaches the advisor; the advisor only
+  normalizes/echoes what it was handed, exactly the same 'advisor
+  never invents, only normalizes' discipline `normalize-intake`
+  established for a unit-intake patch.
+  `pressureequip.governor/tsukuru-query-contains-order-fields-
+  violations` independently re-scans both this request AND this
+  proposal's `:value` for order/settlement/buyer contamination before
+  anything commits -- see that governor rule's docstring for why a
+  FICTIONAL actor can never legitimately carry one."
+  [_db {:keys [isic-code capability candidates]}]
+  (let [n (count candidates)]
+    {:summary    (str "tsukuru factory registry discovery: isic=" (pr-str isic-code)
+                      " capability=" (pr-str capability) " -- " n " 件の候補 (読み取り専用)")
+     :rationale  "読み取り専用discovery -- 発注・決済は一切含まない (実発注は実etzhayyim member(active Adherent SBT)のみ可能で、このactorは対象外)"
+     :cites      [:tsukuru-factory-registry]
+     :effect     :discover/tsukuru-noop
+     :value      {:isic-code isic-code :capability capability :candidates (vec candidates)}
+     :stake      nil
+     :confidence (if (registry/valid-isic-code? isic-code) 0.9 0.2)}))
+
 (defn infer
   "Route a request to the right proposal generator.
   request: {:op kw :subject id ...op-specific...}"
@@ -300,6 +330,7 @@
     :issue-maintenance-notice                     (propose-maintenance-notice db request)
     :register-equipment-asset                     (propose-register-equipment-asset db request)
     :register-part-receipt                        (propose-register-part-receipt db request)
+    :discover/tsukuru-factory-candidates           (propose-tsukuru-discovery db request)
     {:summary "未対応の操作" :rationale (str op) :cites []
      :effect :noop :stake nil :confidence 0.0}))
 
