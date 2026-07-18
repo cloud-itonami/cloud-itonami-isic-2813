@@ -321,3 +321,82 @@
       (exec-op actor "b" {:op :design-rules/verify :subject "unit-1" :no-spec? true} operator)
       (is (= 2 (count (store/ledger db)))
           "one commit + one hold, both recorded"))))
+
+;; ───────────── Additive: remaining-parts supplier linkage (superproject part-supplier-linkage ADR, follow-up to ADR-2800000500/ADR-2800000600) ─────────────
+;;
+;; `compressor-unit-bom.edn`'s `part:frame`/`part:control-panel`/
+;; `part:piping`/`part:vibration-isolators` now each name a real-world
+;; supplier actor via `:part/supplier-actor`, the SAME optional key
+;; `part:electric-motor` already used. The RECEIVE side is the SAME
+;; `:register-part-receipt` op exercised above for `part:electric-
+;; motor` -- no governor/registry/store change was needed for these
+;; parts (`part-receipt-fields-present?`/`part-receipt-handoff-
+;; incomplete-violations` never hardcode a specific `:part-receipt/
+;; part-id` value or supplier name), so these tests exercise the
+;; SAME existing checks against the new parts' handoff shapes, purely
+;; as data-level coverage.
+
+(deftest register-part-receipt-with-complete-handoff-for-frame-from-isic-2410
+  (testing "a part receipt for part:frame WITH a complete :handoff from cloud-itonami-isic-2410 registers and carries the supplier linkage through to the SSoT"
+    (let [[db actor] (fresh)
+          request {:op :register-part-receipt :subject "pr-6"
+                   :part-receipt/part-id "part:frame" :part-receipt/qty 1
+                   :handoff {:handoff/id "ho-5"
+                             :handoff/source-actor "cloud-itonami-isic-2410"
+                             :handoff/batch-id "JPN-HET-000000"
+                             :handoff/product-type-id "part:frame"
+                             :handoff/dispatched-at-iso "2026-07-18T00:00:00Z"}}
+          r1 (exec-op actor "t23" request operator)]
+      (is (= :interrupted (:status r1)) "pauses for human approval even when governor-clean")
+      (let [r2 (approve! actor "t23")
+            pr (store/part-receipt db "pr-6")]
+        (is (= :commit (get-in r2 [:state :disposition])))
+        (is (= "part:frame" (:part-receipt/part-id pr)))
+        (is (= "cloud-itonami-isic-2410" (:handoff/source-actor (:handoff pr))))))))
+
+(deftest register-part-receipt-with-complete-handoff-for-control-panel-from-isic-2610
+  (testing "a part receipt for part:control-panel WITH a complete :handoff from cloud-itonami-isic-2610 registers and carries the supplier linkage through to the SSoT"
+    (let [[db actor] (fresh)
+          request {:op :register-part-receipt :subject "pr-7"
+                   :part-receipt/part-id "part:control-panel" :part-receipt/qty 1
+                   :handoff {:handoff/id "ho-6"
+                             :handoff/source-actor "cloud-itonami-isic-2610"
+                             :handoff/batch-id "JPN-YLD-000000"
+                             :handoff/product-type-id "part:control-panel"
+                             :handoff/dispatched-at-iso "2026-07-18T00:00:00Z"}}
+          r1 (exec-op actor "t24" request operator)]
+      (is (= :interrupted (:status r1)) "pauses for human approval even when governor-clean")
+      (let [r2 (approve! actor "t24")
+            pr (store/part-receipt db "pr-7")]
+        (is (= :commit (get-in r2 [:state :disposition])))
+        (is (= "part:control-panel" (:part-receipt/part-id pr)))
+        (is (= "cloud-itonami-isic-2610" (:handoff/source-actor (:handoff pr))))))))
+
+(deftest register-part-receipt-with-complete-handoff-for-piping-and-vibration-isolators-from-isic-2599
+  (testing "part receipts for part:piping and part:vibration-isolators WITH complete :handoff from cloud-itonami-isic-2599 each register and carry the supplier linkage through to the SSoT"
+    (let [[db actor] (fresh)
+          piping-request {:op :register-part-receipt :subject "pr-8"
+                          :part-receipt/part-id "part:piping" :part-receipt/qty 1
+                          :handoff {:handoff/id "ho-7"
+                                    :handoff/source-actor "cloud-itonami-isic-2599"
+                                    :handoff/batch-id "SHP-000001"
+                                    :handoff/product-type-id "part:piping"
+                                    :handoff/dispatched-at-iso "2026-07-18T00:00:00Z"}}
+          viso-request {:op :register-part-receipt :subject "pr-9"
+                        :part-receipt/part-id "part:vibration-isolators" :part-receipt/qty 4
+                        :handoff {:handoff/id "ho-8"
+                                  :handoff/source-actor "cloud-itonami-isic-2599"
+                                  :handoff/batch-id "SHP-000002"
+                                  :handoff/product-type-id "part:vibration-isolators"
+                                  :handoff/dispatched-at-iso "2026-07-18T00:00:00Z"}}
+          r1 (exec-op actor "t25a" piping-request operator)
+          _ (approve! actor "t25a")
+          r2 (exec-op actor "t25b" viso-request operator)]
+      (is (= :interrupted (:status r1)))
+      (is (= :interrupted (:status r2)))
+      (let [r2b (approve! actor "t25b")
+            piping-pr (store/part-receipt db "pr-8")
+            viso-pr (store/part-receipt db "pr-9")]
+        (is (= :commit (get-in r2b [:state :disposition])))
+        (is (= "cloud-itonami-isic-2599" (:handoff/source-actor (:handoff piping-pr))))
+        (is (= "cloud-itonami-isic-2599" (:handoff/source-actor (:handoff viso-pr))))))))
