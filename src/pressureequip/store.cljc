@@ -60,10 +60,9 @@
   laboratory actor (`cloud-itonami-isic-7120`) engagement/certification
   that justified this issuance stays queryable, not just checked-then-
   discarded. See `pressureequip.governor` ns docstring Addendum 5."
-  (:require #?(:clj  [clojure.edn :as edn]
-               :cljs [cljs.reader :as edn])
-            [pressureequip.registry :as registry]
-            [langchain.db :as d]))
+  (:require [pressureequip.registry :as registry]
+            [langchain.db :as d]
+            [langchain-store.core :as ls]))
 
 (defprotocol Store
   (unit [s id])
@@ -267,22 +266,16 @@
   Map/compound values (verification/pressure-screen payloads, ledger
   facts, dispatch/evidence records) are stored as EDN strings so
   `langchain.db` doesn't expand them into sub-entities -- the same
-  convention every sibling actor's store uses."
-  {:unit/id                            {:db/unique :db.unique/identity}
-   :verification/unit-id               {:db/unique :db.unique/identity}
-   :pressure-screen/unit-id            {:db/unique :db.unique/identity}
-   :ledger/seq                         {:db/unique :db.unique/identity}
-   :dispatch/seq                       {:db/unique :db.unique/identity}
-   :evidence/seq                       {:db/unique :db.unique/identity}
-   :maintenance-notice/seq             {:db/unique :db.unique/identity}
-   :dispatch-sequence/jurisdiction     {:db/unique :db.unique/identity}
-   :evidence-sequence/jurisdiction     {:db/unique :db.unique/identity}
-   :maintenance-notice-sequence/jurisdiction {:db/unique :db.unique/identity}
-   :equipment-asset/id                 {:db/unique :db.unique/identity}
-   :part-receipt/id                    {:db/unique :db.unique/identity}})
-
-(defn- enc [v] (pr-str v))
-(defn- dec* [s] (when s (edn/read-string s)))
+  convention every sibling actor's store uses. The identity-schema
+  builder, EDN-blob codec and seq-keyed event-log read/append are the
+  shared kotoba-lang/langchain-store machinery (ADR-2607141600) -- the
+  seam ~190 actors hand-roll; this store keeps only its domain wiring."
+  (ls/identity-schema
+   [:unit/id :verification/unit-id :pressure-screen/unit-id
+    :ledger/seq :dispatch/seq :evidence/seq :maintenance-notice/seq
+    :dispatch-sequence/jurisdiction :evidence-sequence/jurisdiction
+    :maintenance-notice-sequence/jurisdiction
+    :equipment-asset/id :part-receipt/id]))
 
 (defn- unit->tx [{:keys [id unit-name test-pressure-actual test-pressure-min test-pressure-max
                           pressure-test-defect-unresolved?
@@ -302,7 +295,7 @@
     dispatch-number                              (assoc :unit/dispatch-number dispatch-number)
     evidence-number                              (assoc :unit/evidence-number evidence-number)
     unit-type-id                                 (assoc :unit/unit-type-id unit-type-id)
-    testlab-engagement-ref                       (assoc :unit/testlab-engagement-ref (enc testlab-engagement-ref))))
+    testlab-engagement-ref                       (assoc :unit/testlab-engagement-ref (ls/enc testlab-engagement-ref))))
 
 (def ^:private unit-pull
   [:unit/id :unit/unit-name :unit/test-pressure-actual
@@ -323,7 +316,7 @@
      :jurisdiction (:unit/jurisdiction m) :status (:unit/status m)
      :dispatch-number (:unit/dispatch-number m) :evidence-number (:unit/evidence-number m)
      :unit-type-id (:unit/unit-type-id m)
-     :testlab-engagement-ref (dec* (:unit/testlab-engagement-ref m))}))
+     :testlab-engagement-ref (ls/dec* (:unit/testlab-engagement-ref m))}))
 
 (def ^:private equipment-asset-pull
   "Pull attrs for a registered `:equipment-asset` entity -- the same
@@ -349,7 +342,7 @@
   [{:keys [handoff] :as part-receipt}]
   (let [scalars (into {} (remove (comp nil? val) (dissoc part-receipt :handoff)))]
     (cond-> scalars
-      handoff (assoc :part-receipt/handoff (enc handoff)))))
+      handoff (assoc :part-receipt/handoff (ls/enc handoff)))))
 
 (def ^:private part-receipt-pull
   [:part-receipt/id :part-receipt/part-id :part-receipt/qty :part-receipt/handoff])
@@ -357,7 +350,7 @@
 (defn- pull->part-receipt [m]
   (when (:part-receipt/id m)
     (cond-> (dissoc m :part-receipt/handoff)
-      (:part-receipt/handoff m) (assoc :handoff (dec* (:part-receipt/handoff m))))))
+      (:part-receipt/handoff m) (assoc :handoff (ls/dec* (:part-receipt/handoff m))))))
 
 (defrecord DatomicStore [conn]
   Store
@@ -368,29 +361,17 @@
          (map #(pull->unit (d/pull (d/db conn) unit-pull [:unit/id %])))
          (sort-by :id)))
   (pressure-screen-of [_ id]
-    (dec* (d/q '[:find ?p . :in $ ?aid
+    (ls/dec* (d/q '[:find ?p . :in $ ?aid
                 :where [?k :pressure-screen/unit-id ?aid] [?k :pressure-screen/payload ?p]]
               (d/db conn) id)))
   (requirements-verification-of [_ unit-id]
-    (dec* (d/q '[:find ?p . :in $ ?aid
+    (ls/dec* (d/q '[:find ?p . :in $ ?aid
                 :where [?a :verification/unit-id ?aid] [?a :verification/payload ?p]]
               (d/db conn) unit-id)))
-  (ledger [_]
-    (->> (d/q '[:find ?s ?f :where [?e :ledger/seq ?s] [?e :ledger/fact ?f]] (d/db conn))
-         (sort-by first)
-         (mapv (comp dec* second))))
-  (dispatch-history [_]
-    (->> (d/q '[:find ?s ?r :where [?e :dispatch/seq ?s] [?e :dispatch/record ?r]] (d/db conn))
-         (sort-by first)
-         (mapv (comp dec* second))))
-  (evidence-history [_]
-    (->> (d/q '[:find ?s ?r :where [?e :evidence/seq ?s] [?e :evidence/record ?r]] (d/db conn))
-         (sort-by first)
-         (mapv (comp dec* second))))
-  (maintenance-notice-history [_]
-    (->> (d/q '[:find ?s ?r :where [?e :maintenance-notice/seq ?s] [?e :maintenance-notice/record ?r]] (d/db conn))
-         (sort-by first)
-         (mapv (comp dec* second))))
+  (ledger [_] (ls/read-stream conn :ledger/seq :ledger/fact))
+  (dispatch-history [_] (ls/read-stream conn :dispatch/seq :dispatch/record))
+  (evidence-history [_] (ls/read-stream conn :evidence/seq :evidence/record))
+  (maintenance-notice-history [_] (ls/read-stream conn :maintenance-notice/seq :maintenance-notice/record))
   (next-dispatch-sequence [_ jurisdiction]
     (or (d/q '[:find ?n . :in $ ?j
               :where [?e :dispatch-sequence/jurisdiction ?j] [?e :dispatch-sequence/next ?n]]
@@ -430,10 +411,10 @@
       (d/transact! conn [(unit->tx value)])
 
       :verification/set
-      (d/transact! conn [{:verification/unit-id (first path) :verification/payload (enc payload)}])
+      (d/transact! conn [{:verification/unit-id (first path) :verification/payload (ls/enc payload)}])
 
       :pressure-test-screen/set
-      (d/transact! conn [{:pressure-screen/unit-id (first path) :pressure-screen/payload (enc payload)}])
+      (d/transact! conn [{:pressure-screen/unit-id (first path) :pressure-screen/payload (ls/enc payload)}])
 
       :unit/mark-dispatched
       (let [unit-id (first path)
@@ -443,7 +424,7 @@
         (d/transact! conn
                      [(unit->tx (assoc unit-patch :id unit-id))
                       {:dispatch-sequence/jurisdiction jurisdiction :dispatch-sequence/next next-n}
-                      {:dispatch/seq (count (dispatch-history s)) :dispatch/record (enc (get result "record"))}])
+                      {:dispatch/seq (count (dispatch-history s)) :dispatch/record (ls/enc (get result "record"))}])
         result)
 
       :unit/mark-certified
@@ -455,7 +436,7 @@
         (d/transact! conn
                      [(unit->tx (assoc unit-patch :id unit-id))
                       {:evidence-sequence/jurisdiction jurisdiction :evidence-sequence/next next-n}
-                      {:evidence/seq (count (evidence-history s)) :evidence/record (enc (get result "record"))}])
+                      {:evidence/seq (count (evidence-history s)) :evidence/record (ls/enc (get result "record"))}])
         result)
 
       :maintenance-notice/issue
@@ -465,7 +446,7 @@
             next-n (inc (next-maintenance-notice-sequence s jurisdiction))]
         (d/transact! conn
                      [{:maintenance-notice-sequence/jurisdiction jurisdiction :maintenance-notice-sequence/next next-n}
-                      {:maintenance-notice/seq (count (maintenance-notice-history s)) :maintenance-notice/record (enc (get result "record"))}])
+                      {:maintenance-notice/seq (count (maintenance-notice-history s)) :maintenance-notice/record (ls/enc (get result "record"))}])
         result)
 
       :equipment-asset/register
@@ -476,7 +457,7 @@
       nil)
     s)
   (append-ledger! [s fact]
-    (d/transact! conn [{:ledger/seq (count (ledger s)) :ledger/fact (enc fact)}])
+    (d/transact! conn [{:ledger/seq (count (ledger s)) :ledger/fact (ls/enc fact)}])
     fact)
   (with-units [s units]
     (when (seq units) (d/transact! conn (mapv unit->tx (vals units)))) s))
