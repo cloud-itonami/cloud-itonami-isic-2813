@@ -9,9 +9,35 @@
   ASME B31.3 (process piping) + API 610/674/675/676 (pumps) for USA,
   the EU Pressure Equipment Directive 2014/68/EU (PED) + EN 13445
   (unfired pressure vessels) for DEU, JIS B 8501/8265 + the High
-  Pressure Gas Safety Act (高圧ガス保安法) for JPN, and PSSR 2000 + BS
-  EN 13445 (UKCA-adopted) for GBR -- this is a starting catalog, not a
-  survey of every market.")
+  Pressure Gas Safety Act (高圧ガス保安法) for JPN, PSSR 2000 + BS
+  EN 13445 (UKCA-adopted) for GBR, and -- added as the 5th seed
+  jurisdiction -- TSG 07-2019 '特种设备生产和充装单位许可规则'
+  (Regulation for Production and Filling Licensing of Special
+  Equipment, SAMR 国家市场监督管理总局 公告2019年第22号, fetched and
+  read directly from https://www.gov.cn/zhengce/zhengceku/2019-11/08/content_5450126.htm
+  and its SAMR mirror) + GB/T 150《压力容器》for CHN -- this is a
+  starting catalog, not a survey of every market.
+
+  CHN provenance/gap note (fetched this session, no training-data
+  paraphrase): TSG 07-2019's own s.1.1 cites its legal basis as
+  '《中华人民共和国特种设备安全法》《中华人民共和国行政许可法》
+  《特种设备安全监察条例》' (the PRC Special Equipment Safety Law +
+  Administrative Licensing Law + Regulation on Safety Supervision of
+  Special Equipment) -- confirmed by fetching that PDF directly. The
+  Law's own promulgation record (adopted 2013-06-29, effective
+  2014-01-01, 主席令第四号) was independently confirmed via
+  http://www.npc.gov.cn/zgrdw/huiyi/lfzt/tzsbaqf/2013-06/30/content_1799751.htm,
+  but this catalog does NOT cite a specific article number of that
+  Law or quote the 特种设备安全监察条例's own text, because npc.gov.cn's
+  full-text law database (flk.npc.gov.cn) is a JS-rendered SPA this
+  session could not read server-side without a browser -- left
+  honestly unconfirmed rather than guessed from memory. Likewise, the
+  fixed-pressure-vessel classification standard TSG 21-2016 (referenced
+  by name, uncited by number, in SAMR's own 公告2021年第41号 catalog of
+  licensable equipment) had its TSG NUMBER confirmed only via a
+  secondary source (百度百科), not a primary SAMR/AQSIQ promulgation
+  page reachable this session -- flagged here rather than asserted as
+  independently primary-sourced.")
 
 (def catalog
   {"JPN" {:name "Japan"
@@ -49,7 +75,16 @@
           :required-evidence ["Druckprüfbericht (hydrostatic-pneumatic-pressure-test-report)"
                               "Werkstoffzertifikat (material-certification-record)"
                               "Schweißverfahrensprüfung (weld-procedure-qualification-record)"
-                              "Festigkeitsberechnungsnachweis (design-calculation-conformity-record)"]}})
+                              "Festigkeitsberechnungsnachweis (design-calculation-conformity-record)"]}
+   "CHN" {:name "China"
+          :owner-authority "国家市场监督管理总局 (SAMR) 特种设备安全监察局 -- 前身为国家质量监督检验检疫总局 (AQSIQ) 特种设备局；TSG标准起草技术支撑机构为中国特种设备检测研究院"
+          :legal-basis "中华人民共和国特种设备安全法 (2013-06-29 第十二届全国人大常委会第三次会议通过，主席令第四号公布，2014-01-01起施行) / 中华人民共和国特种设备安全监察条例 -- TSG 07-2019《特种设备生产和充装单位许可规则》(国家市场监督管理总局公告2019年第22号，2019-05-13发布) 附件C 压力容器生产单位和移动式压力容器充装单位许可条件 / 固定式压力容器安全技术监察规程 (TSG 21-2016，压力分级依据，据市场监管总局公告2021年第41号《特种设备生产单位许可目录》引用；TSG编号本身仅经二手来源确认，见ns docstring gap note) / GB/T 150《压力容器》(通用设计制造标准，ASME BPVC/EN 13445/JIS B 8501相当)"
+          :national-spec "固定式/移动式压力容器的设计许可(含分析设计SAD、试设计)与制造许可(特种设备生产许可证，有效期4年)、耐压试验/泄漏试验、材料、焊接(PQR/WPS)、无损检测质量保证体系(TSG 07-2019附件C/附件M)要求；许可证书与产品合格证书是两套不同机制，境外承压类特种设备制造商同样适用制造许可制度"
+          :provenance "https://www.samr.gov.cn/tzsbj/tzgg/zjwh/art/2019/art_de229c039b104f01b317abcae4ef8b5a.html"
+          :required-evidence ["耐压试验(泄漏试验)报告 (hydrostatic-pneumatic-pressure-test-report)"
+                              "材料质量证明文件 (material-certification-record)"
+                              "焊接工艺评定报告(PQR)/焊接工艺指导书(WPS) (weld-procedure-qualification-record)"
+                              "设计计算书 (design-calculation-conformity-record)"]}})
 
 (defn spec-basis [iso3] (get catalog iso3))
 
