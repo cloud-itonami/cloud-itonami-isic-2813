@@ -89,10 +89,6 @@ jobs:
           path: orgs/kotoba-lang/webgpu
       - uses: actions/checkout@v4
         with:
-          repository: kotoba-lang/wgsl
-          path: orgs/kotoba-lang/wgsl
-      - uses: actions/checkout@v4
-        with:
           repository: kotoba-lang/playwright
           path: orgs/kotoba-lang/playwright
       - uses: actions/checkout@v4
