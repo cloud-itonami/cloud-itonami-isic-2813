@@ -53,7 +53,11 @@
    ;; webgpu's own transitive graph (host, webgpu itself) uses :local/root -- tools.deps
    ;; can't compare a :git and a :local/root coordinate for the same lib, so force the
    ;; workspace-local checkout (same pattern as this file's :dev override-deps).
-   :override-deps {io.github.kotoba-lang/physics {:local/root "../../kotoba-lang/physics"}}
+   :override-deps {io.github.kotoba-lang/physics {:local/root "../../kotoba-lang/physics"}
+                   ;; wgsl: webgpu's deps.edn pulls it via :local/root ../wgsl while a
+                   ;; transitive path brings it via :git/sha -- same git-vs-:local/root
+                   ;; conflict as physics above; force the workspace-local checkout.
+                   io.github.kotoba-lang/wgsl {:local/root "../../kotoba-lang/wgsl"}}
    :main-opts ["-m" "cognitect.test-runner" "-d" "test-visualize"]
    :exec-fn cognitect.test-runner.api/test
    :exec-args {:dirs ["test-visualize"]}}
