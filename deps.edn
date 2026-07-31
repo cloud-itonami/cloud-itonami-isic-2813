@@ -20,6 +20,7 @@
          {:local/root "../../kotoba-lang/langchain"}}}
   ;; clojure -M:dev:run  -> drive the demo through one OperationActor
   :run {:main-opts ["-m" "pressureequip.sim"]}
+  :render-html {:main-opts ["-m" "pressureequip.render-html"]}
   :export {:main-opts ["-m" "pressureequip.export-run"]}
   :test {:extra-paths ["test"]
          :extra-deps {io.github.cognitect-labs/test-runner
