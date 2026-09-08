@@ -252,7 +252,7 @@
   it can never write to this actor's own SSoT beyond an audit-ledger
   entry, and it never touches the phase-gate's write/auto machinery
   at all."
-  (:require [clojure.string :as str]
+  (:require [kotoba.lang.text :as str]
             [pressureequip.facts :as facts]
             [pressureequip.registry :as registry]
             [pressureequip.store :as store]))

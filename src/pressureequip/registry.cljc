@@ -35,7 +35,7 @@
   (that is `pressureequip.operation`'s `:actuation/dispatch-unit`/
   `:actuation/issue-pressure-test-certificate`, always human-gated --
   see README `Actuation`)."
-  (:require [clojure.string :as str]))
+  (:require [kotoba.lang.text :as str]))
 
 (defn- unsigned-certificate
   "Every certificate this actor produces is UNSIGNED -- signature is the
@@ -81,7 +81,7 @@
     (throw (ex-info "unit-dispatch: jurisdiction required" {})))
   (when (< sequence 0)
     (throw (ex-info "unit-dispatch: sequence must be >= 0" {})))
-  (let [dispatch-number (str (str/upper-case jurisdiction) "-PEQ-" (zero-pad sequence 6))
+  (let [dispatch-number (str (str/upper jurisdiction) "-PEQ-" (zero-pad sequence 6))
         record {"record_id" dispatch-number
                 "kind" "unit-dispatch-draft"
                 "unit_id" unit-id
@@ -107,7 +107,7 @@
     (throw (ex-info "pressure-test-certificate: jurisdiction required" {})))
   (when (< sequence 0)
     (throw (ex-info "pressure-test-certificate: sequence must be >= 0" {})))
-  (let [evidence-number (str (str/upper-case jurisdiction) "-PTC-" (zero-pad sequence 6))
+  (let [evidence-number (str (str/upper jurisdiction) "-PTC-" (zero-pad sequence 6))
         record {"record_id" evidence-number
                 "kind" "pressure-test-certificate-draft"
                 "unit_id" unit-id
@@ -142,7 +142,7 @@
     (throw (ex-info "maintenance-notice: jurisdiction required" {})))
   (when (< sequence 0)
     (throw (ex-info "maintenance-notice: sequence must be >= 0" {})))
-  (let [notice-number (str (str/upper-case jurisdiction) "-PMN-" (zero-pad sequence 6))
+  (let [notice-number (str (str/upper jurisdiction) "-PMN-" (zero-pad sequence 6))
         record {"record_id" notice-number
                 "kind" "maintenance-notice-draft"
                 "unit_id" unit-id

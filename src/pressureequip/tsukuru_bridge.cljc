@@ -62,7 +62,7 @@
   reachable deployment later requires no code change here."
   (:require [kotoba.lang.atproto-client.atproto :as atproto]
             [kotoba.lang.atproto-client.pds :as pds]
-            [clojure.string :as str]))
+            [kotoba.lang.text :as str]))
 
 (def factory-collection
   "tsukuru's own manufacturer-registry lexicon nsid (`lex/factory.edn`,
@@ -111,7 +111,7 @@
     (pds/list-records agent (or repo default-repo) factory-collection
                       (cond-> {} limit (assoc :limit limit) cursor (assoc :cursor cursor)))))
 
-(defn- normalize-str [s] (some-> s str str/trim str/lower-case))
+(defn- normalize-str [s] (some-> s str str/trim str/lower))
 
 (defn factory-matches?
   "Pure predicate, ZERO I/O: does one `factory` record `value` (as
