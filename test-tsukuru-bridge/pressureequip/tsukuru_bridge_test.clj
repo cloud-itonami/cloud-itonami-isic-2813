@@ -16,7 +16,7 @@
   Run with:
     clojure -M:tsukuru-bridge"
   (:require [clojure.test :refer [deftest is testing]]
-            [clojure.string :as str]
+            [kotoba.lang.text :as str]
             [clojure.data.json :as json]
             [kotoba.lang.atproto-client.atproto :as atproto]
             [pressureequip.tsukuru-bridge :as bridge]
