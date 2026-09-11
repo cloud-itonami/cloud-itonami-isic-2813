@@ -5,7 +5,7 @@
 ;; pattern this mirrors). `:station/parts` references `:part/id`s from
 ;; compressor-unit-bom.edn; resolution is checked by
 ;; `pressureequip.assembly/step-parts-consistent?`
-;; (test/pressureequip/assembly_test.cljc). Hand-authored, illustrative
+;; (test/pressureequip/assembly_test.cljk). Hand-authored, illustrative
 ;; station durations -- not a real line-balancing study.
 ;;
 ;; Additive-manufacturing station (ADR-2800000400): a new `st:am-print`
