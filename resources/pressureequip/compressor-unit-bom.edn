@@ -8,7 +8,7 @@
 ;; is used by at least one station) is checked by
 ;; `pressureequip.assembly/step-parts-consistent?` /
 ;; `pressureequip.assembly/bom-parts-all-used?`
-;; (test/pressureequip/assembly_test.cljc) -- the BOM<->process-graph
+;; (test/pressureequip/assembly_test.cljk) -- the BOM<->process-graph
 ;; analogue of kami-app-sarutahiko-factory's
 ;; `kotoba.sarutahiko-factory.construction-order/reveals-resolve?`.
 ;;
