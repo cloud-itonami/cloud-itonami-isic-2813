@@ -12,7 +12,7 @@
   discipline `propose-tsukuru-discovery` documents. It deliberately
   does NOT touch `pressureequip.tsukuru-bridge`/`kotoba.lang.atproto-
   client` at all (see `test-tsukuru-bridge/pressureequip/
-  tsukuru_bridge_test.clj`, run via `clojure -M:tsukuru-bridge`, for
+  tsukuru_bridge_test.clj`, run via `kbb -M:tsukuru-bridge`, for
   the mock-HTTP-backed bridge-level coverage)."
   (:require [clojure.test :refer [deftest is testing]]
             [langgraph.graph :as g]

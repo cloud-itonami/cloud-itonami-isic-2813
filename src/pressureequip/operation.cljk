@@ -37,7 +37,7 @@
   ONLY consumer of `pressureequip.tsukuru-bridge`/`kotoba.lang.
   atproto-client`, which are opt-in (`:tsukuru-bridge` alias, see
   `deps.edn`) -- keeping that require here would force an AT-Proto
-  client dependency onto every ordinary `clojure -M:test` run of this
+  client dependency onto every ordinary `kbb -M:test` run of this
   actor. See `pressureequip.tsukuru-bridge` ns docstring for why this
   actor implements NOTHING beyond this one read-only query toward
   tsukuru."

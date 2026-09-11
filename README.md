@@ -111,12 +111,12 @@ superproject ADR for the full rationale.
 
 `io.github.kotoba-lang/atproto-client` is an opt-in dependency
 (`deps.edn`'s `:tsukuru-bridge` alias, mirroring `:visualize`'s
-isolation) -- a plain `clojure -M:test`/`clojure -M:dev:test` never
+isolation) -- a plain `kbb -M:test`/`kbb -M:dev:test` never
 needs an AT-Proto client on the classpath. Bridge-level tests (mock
 `IHttp`, never the real `tsukr8u0.etzhayyim.com`) run with:
 
 ```bash
-clojure -M:tsukuru-bridge
+kbb -M:tsukuru-bridge
 ```
 
 ## Social / regulatory hand-off
@@ -135,9 +135,9 @@ Operator console (static sample): `docs/samples/operator-console.html`.
 ## Develop
 
 ```bash
-clojure -M:dev:test
-clojure -M:lint
-clojure -M:dev:run
+kbb -M:dev:test
+kbb -M:lint
+kbb -M:dev:run
 ```
 
 ## License
@@ -156,8 +156,8 @@ Local: open `docs/index.html` or `docs/samples/operator-console.html`.
 ## Export audit package (CLI)
 
 ```bash
-clojure -M:dev:export
-# or: clojure -M:dev:export /tmp/audit-2813
+kbb -M:dev:export
+# or: kbb -M:dev:export /tmp/audit-2813
 ```
 
 Writes CSV files under `out/audit-package/` (or the given directory).

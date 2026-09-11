@@ -23,7 +23,7 @@
   The scenario is authored here rather than reusing `pressureequip.sim`
   wholesale, but it is built on the same real seed (this repo's own sim
   driver, unlike some siblings', does use real seeded ids -- verified by
-  running `clojure -M:dev:run` before writing this file), and it differs
+  running `kbb -M:dev:run` before writing this file), and it differs
   from the sim in three deliberate ways:
 
     1. `unit-2`'s `:no-spec-basis` hold is driven WITHOUT the sim's
@@ -108,7 +108,7 @@
   hex colours; the skin targets exactly the small semantic class
   vocabulary emitted below.
 
-  Usage: `clojure -M:dev:render-html [out-file]`
+  Usage: `kbb -M:dev:render-html [out-file]`
   (default `docs/samples/operator-console.html`)."
   (:require [jp-go-dds.skin]
             [kotoba.lang.text :as str]
@@ -333,7 +333,7 @@
 
      "  <section class=\"card\">\n"
      "    <h2>Production units</h2>\n"
-     "    <p class=\"muted\">Build-time snapshot generated from <code>pressureequip.store</code> by driving the real <code>pressureequip.operation</code> → <code>pressureequip.governor</code> stack (<code>clojure -M:dev:render-html</code>). Every unit id is seeded in <code>pressureequip.store/demo-data</code>; every cell is a store entity key or a real ledger fact.</p>\n"
+     "    <p class=\"muted\">Build-time snapshot generated from <code>pressureequip.store</code> by driving the real <code>pressureequip.operation</code> → <code>pressureequip.governor</code> stack (<code>kbb -M:dev:render-html</code>). Every unit id is seeded in <code>pressureequip.store/demo-data</code>; every cell is a store entity key or a real ledger fact.</p>\n"
      "    <table>\n"
      "      <thead><tr><th>Unit</th><th>Name</th><th>Jurisdiction</th><th>Acceptance test pressure</th><th>Unit dispatch</th><th>Pressure-test certificate</th><th>Last ledger fact</th></tr></thead>\n"
      "      <tbody>\n"

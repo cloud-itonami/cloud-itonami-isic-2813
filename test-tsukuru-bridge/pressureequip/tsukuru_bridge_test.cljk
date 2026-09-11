@@ -12,9 +12,9 @@
   Lives OUTSIDE `test/`, in `test-tsukuru-bridge/`, exactly mirroring
   this repo's own `test-visualize/` isolation (see `deps.edn`'s
   `:tsukuru-bridge` alias comment) -- `io.github.kotoba-lang/atproto-
-  client` is NOT on the classpath for a plain `clojure -M:test` run.
+  client` is NOT on the classpath for a plain `kbb -M:test` run.
   Run with:
-    clojure -M:tsukuru-bridge"
+    kbb -M:tsukuru-bridge"
   (:require [clojure.test :refer [deftest is testing]]
             [kotoba.lang.text :as str]
             [clojure.data.json :as json]
