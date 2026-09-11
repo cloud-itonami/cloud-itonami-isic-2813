@@ -34,7 +34,7 @@
   :dev {:override-deps
         {io.github.kotoba-lang/langchain
          {:local/root "../../kotoba-lang/langchain"}}}
-  ;; clojure -M:dev:run  -> drive the demo through one OperationActor
+  ;; kbb -M:dev:run  -> drive the demo through one OperationActor
   :run {:main-opts ["-m" "pressureequip.sim"]}
   :render-html {:main-opts ["-m" "pressureequip.render-html"]}
   :export {:main-opts ["-m" "pressureequip.export-run"]}
@@ -54,9 +54,9 @@
   ;; and reads back pixels, mirroring kotoba-lang/webgpu's own
   ;; test/playwright_mesh_test.clj pattern exactly. Deliberately isolated from
   ;; :test/:dev: NOT part of top-level :deps or the default "test" dir that
-  ;; `clojure -M:test` scans, so a normal `clojure -M:test` run never needs
+  ;; `kbb -M:test` scans, so a normal `kbb -M:test` run never needs
   ;; kami-engine's rendering stack on the classpath. Run with:
-  ;;   clojure -M:visualize
+  ;;   kbb -M:visualize
   ;; Requires Node + a Playwright Chromium install reachable via NODE_PATH or
   ;; the npx cache (see scripts/pw_eval.cjs / kami.playwright's docstring) --
   ;; `npx playwright install chromium` if none is cached yet.
@@ -85,10 +85,10 @@
   ;; (never the real `tsukr8u0.etzhayyim.com`). Deliberately isolated
   ;; from :test, the SAME reasoning `:visualize` above already
   ;; documents: `io.github.kotoba-lang/atproto-client` is NOT part of
-  ;; top-level :deps or the default "test" dir `clojure -M:test` scans,
-  ;; so a normal `clojure -M:test` run never needs an AT-Proto client
+  ;; top-level :deps or the default "test" dir `kbb -M:test` scans,
+  ;; so a normal `kbb -M:test` run never needs an AT-Proto client
   ;; on the classpath. Run with:
-  ;;   clojure -M:tsukuru-bridge
+  ;;   kbb -M:tsukuru-bridge
   :tsukuru-bridge
   {:extra-paths ["test-tsukuru-bridge"]
    :extra-deps {io.github.kotoba-lang/atproto-client {:local/root "../../kotoba-lang/atproto-client"}

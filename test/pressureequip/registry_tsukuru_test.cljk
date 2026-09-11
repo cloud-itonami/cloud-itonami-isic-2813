@@ -4,7 +4,7 @@
   `contains-order-fields?`/`order-contamination-keys`) -- pure, zero-
   I/O functions, no `pressureequip.tsukuru-bridge`/`kotoba.lang.
   atproto-client` involved at all, so this runs under the plain
-  `clojure -M:test`."
+  `kbb -M:test`."
   (:require [clojure.test :refer [deftest is testing]]
             [pressureequip.registry :as registry]))
 

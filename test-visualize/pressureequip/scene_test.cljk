@@ -1,5 +1,5 @@
 (ns pressureequip.scene-test
-  "OPT-IN 3D-visualization E2E gate (not part of `clojure -M:test`'s default
+  "OPT-IN 3D-visualization E2E gate (not part of `kbb -M:test`'s default
   \"test\" dir — see deps.edn's `:visualize` alias comment). Verifies TWO
   things about `pressureequip.scene/unit->render-ir`:
 
