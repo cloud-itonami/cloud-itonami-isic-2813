@@ -14,7 +14,7 @@
   bundle yet). Every other fn here is pure data -- given a `bom` map and a
   `prod-order` map (however they were obtained), they only inspect and
   cross-reference `:part/id` / `:station/parts` strings."
-  #?(:clj (:require [clojure.edn :as edn]
+  #?(:clj (:require [kotoba.lang.edn :as edn]
                     [clojure.java.io :as io])))
 
 ;; ---- I/O: resource loaders (JVM only) --------------------------------------
