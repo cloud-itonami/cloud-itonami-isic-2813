@@ -1,5 +1,5 @@
 (ns pressureequip.assembly-test
-  (:require [clojure.set :as set]
+  (:require [kotoba.lang.coll :as set]
             [kotoba.test :refer [deftest is testing]]
             [pressureequip.assembly :as assembly]))
 
