@@ -1,0 +1,31 @@
+;; What this vertical's robot physically does, declared for
+;; kotoba.robotics.process (kotoba-lang/robotics). `kbb -M:dev:physics` runs it.
+;;
+;; README "Robotics premise": robots do final assembly, fit-up and
+;; hydrostatic / pneumatic pressure-test rig operation under an actor and an
+;; independent Pressure Equipment Governor, which never issues a
+;; pressure-test certificate itself. The rig work measured here: filling the
+;; test piece with water from the rig's fill pump, and draining it after the
+;; hydrostatic test.
+;;
+;; Every number without a cited source is marked `estimate` in its :basis.
+{:physics/schema "itonami.physical-ai.spec.v1"
+ :repo "cloud-itonami/cloud-itonami-isic-2813"
+ :cases
+ [{:id :hydrotest-fill
+   :kind :pipe-flow
+   :procedure "rig fill pump pushes water through a 15 m, 25 mm hose up 3 m into the pump casing / valve body under test"
+   :params {:diameter-m 0.025 :length-m 15.0 :roughness-m 4.5e-5
+            :density-kg-m3 998.0 :viscosity-pa-s 1.0e-3 :pump-efficiency 0.5 :elevation-m 3.0}
+   :sweep {:param :q-m3s :values [0.0005 0.001 0.002 0.003 0.004]}
+   :quantity :pump-power-w
+   :limit {:max 750.0 :basis "estimate: shaft power of the rig's 0.75 kW fill pump; hose roughness and pump efficiency are estimates"}
+   :boundary {:lo 0.0002 :hi 0.008}}
+  {:id :hydrotest-drain
+   :kind :tank-drain
+   :procedure "after the hydrostatic test the robot opens the drain valve and waits until the test piece (0.8 m2 section, 1.5 m water column) is down to 20 mm"
+   :params {:tank-area-m2 0.8 :h0-m 1.5 :h-target-m 0.02 :cd 0.62 :q-in-m3s 0.0}
+   :sweep {:param :orifice-area-m2 :values [1.77e-4 3.14e-4 4.91e-4 1.26e-3 1.96e-3]}
+   :quantity :time-to-target-s
+   :limit {:max 600.0 :basis "estimate: a 10-minute drain slot per test piece on the rig; the sweep is the bore of DN15/20/25/40/50 drain valves, cd 0.62 is a sharp-edged-orifice estimate"}
+   :boundary {:lo 1.0e-4 :hi 3.0e-3}}]}
