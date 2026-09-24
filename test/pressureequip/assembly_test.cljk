@@ -1,6 +1,6 @@
 (ns pressureequip.assembly-test
   (:require [clojure.set :as set]
-            [clojure.test :refer [deftest is testing]]
+            [kotoba.test :refer [deftest is testing]]
             [pressureequip.assembly :as assembly]))
 
 (deftest seq-contiguous-test

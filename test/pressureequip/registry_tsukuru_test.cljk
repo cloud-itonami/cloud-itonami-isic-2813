@@ -5,7 +5,7 @@
   I/O functions, no `pressureequip.tsukuru-bridge`/`kotoba.lang.
   atproto-client` involved at all, so this runs under the plain
   `kbb -M:test`."
-  (:require [clojure.test :refer [deftest is testing]]
+  (:require [kotoba.test :refer [deftest is testing]]
             [pressureequip.registry :as registry]))
 
 (deftest valid-isic-code-accepts-numeric-and-section-letter-forms

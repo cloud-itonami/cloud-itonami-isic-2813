@@ -15,7 +15,7 @@
   client` is NOT on the classpath for a plain `kbb -M:test` run.
   Run with:
     kbb -M:tsukuru-bridge"
-  (:require [clojure.test :refer [deftest is testing]]
+  (:require [kotoba.test :refer [deftest is testing]]
             [kotoba.lang.text :as str]
             [clojure.data.json :as json]
             [kotoba.lang.atproto-client.atproto :as atproto]
