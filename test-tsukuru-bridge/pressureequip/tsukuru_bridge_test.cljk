@@ -17,7 +17,7 @@
     kbb -M:tsukuru-bridge"
   (:require [kotoba.test :refer [deftest is testing]]
             [kotoba.lang.text :as str]
-            [clojure.data.json :as json]
+            [kotoba.json :as json]
             [kotoba.lang.atproto-client.atproto :as atproto]
             [pressureequip.tsukuru-bridge :as bridge]
             [pressureequip.tsukuru-discovery :as discovery]
