@@ -1,5 +1,5 @@
 (ns pressureequip.registry-test
-  (:require [clojure.test :refer [deftest is]]
+  (:require [kotoba.test :refer [deftest is]]
             [pressureequip.registry :as r]))
 
 ;; ----------------------------- unit-test-pressure-out-of-range? -----------------------------

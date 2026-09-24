@@ -16,7 +16,7 @@
        readPixels) — no new rendering methodology invented here, just
        extended to loop over N instances (this scene has 5) and honour each
        instance's `:pos`/`:yaw` via an added `rotateY`."
-  (:require [clojure.test :refer [deftest is]]
+  (:require [kotoba.test :refer [deftest is]]
             [kami.playwright :as pw]
             [kami.webgpu.geometry :as geom]
             [kami.webgpu.ir :as ir]
