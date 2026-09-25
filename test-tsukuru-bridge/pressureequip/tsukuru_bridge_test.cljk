@@ -15,7 +15,7 @@
   client` is NOT on the classpath for a plain `kbb -M:test` run.
   Run with:
     kbb -M:tsukuru-bridge"
-  (:require [kotoba.test :refer [deftest is testing]]
+  (:require [kotoba.lang.error :as kerror] [kotoba.test :refer [deftest is testing]]
             [kotoba.lang.text :as str]
             [kotoba.json :as json]
             [kotoba.lang.atproto-client.atproto :as atproto]
@@ -104,7 +104,7 @@
     (is (= [] (bridge/factory-candidates {:http http} "9999" "no-such-capability")))))
 
 (deftest list-factories-requires-http
-  (is (thrown? clojure.lang.ExceptionInfo (bridge/list-factories {}))))
+  (is (thrown? kerror/ExceptionInfo (bridge/list-factories {}))))
 
 ;; ─── end-to-end: discover! (real bridge fetch, via the mock transport, -> governed graph) ──
 
