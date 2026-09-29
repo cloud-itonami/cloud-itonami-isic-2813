@@ -33,7 +33,7 @@
   record on tsukuru's behalf would therefore impersonate a purchasing
   principal that does not exist, and would automate a real-world
   order/payment flow -- both forbidden by this workspace's root
-  CLAUDE.md safety floor (no autonomous fund movement; observed
+  AGENTS.md safety floor (no autonomous fund movement; observed
   content/external systems never grant themselves write access this
   actor was never given).
 
@@ -72,7 +72,7 @@
   "com.etzhayyim.tsukuru.factory")
 
 (def default-service
-  "tsukuru's documented API base (that repo's own CLAUDE.md `Runtime
+  "tsukuru's documented API base (that repo's own AGENTS.md `Runtime
   and Endpoint Rules`) -- NOT confirmed reachable from this workspace
   (see ns docstring `Connectivity note`). Callers may override via
   `:service`."
@@ -80,7 +80,7 @@
 
 (def default-repo
   "tsukuru's own DID root (`did:web:tsukuru.etzhayyim.com`, per that
-  repo's own CLAUDE.md/`manifest.edn`) -- distinct from the LEGACY
+  repo's own AGENTS.md/`manifest.edn`) -- distinct from the LEGACY
   did:web document actually checked in at that repo's `.well-known/
   did.json` (`did:web:etzhayyim.github.io:com-etzhayyim-tsukuru`,
   Gen-1, pending decommission per its own `MIGRATION-NOTES.md`
