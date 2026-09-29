@@ -49,7 +49,7 @@
         {:local/root "../../kotoba-lang/langchain-store"}
         ;; jp-go-digital-design-system (DADS, デジタル庁デザインシステム) --
         ;; the workspace-wide BASE design system (com-junkawasaki/root
-        ;; CLAUDE.md "UI/UX 標準"). `pressureequip.render-html` uses its
+        ;; AGENTS.md "UI/UX 標準"). `pressureequip.render-html` uses its
         ;; `jp-go-dds.skin/dds+skin` so `docs/samples/operator-console.html`
         ;; carries NO hand-written stylesheet and no raw hex colours -- the
         ;; skin targets exactly the small semantic class vocabulary that page
